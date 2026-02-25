@@ -3,35 +3,49 @@ import { useState } from 'react';
 interface Props {
   framePath: string;
   screenPath: string;
+  screenExtraPaths: string;
 }
 
-export function FrameViewer({ framePath, screenPath }: Props) {
-  const [view, setView] = useState<'camera' | 'screen'>('camera');
+type ViewTab = { label: string; path: string };
 
-  const hasScreen = screenPath.length > 0;
+export function FrameViewer({ framePath, screenPath, screenExtraPaths }: Props) {
+  const tabs: ViewTab[] = [];
+
+  tabs.push({ label: 'カメラ', path: framePath });
+
+  if (screenPath) {
+    tabs.push({ label: 'スクリーン', path: screenPath });
+  }
+
+  if (screenExtraPaths) {
+    const extras = screenExtraPaths.split(',').filter(Boolean);
+    extras.forEach((p, i) => {
+      tabs.push({ label: `+${(i + 1) * 10}s`, path: p });
+    });
+  }
+
+  const [activeIdx, setActiveIdx] = useState(0);
+  const current = tabs[activeIdx] || tabs[0];
 
   return (
     <div className="frame-viewer">
-      {hasScreen && (
+      {tabs.length > 1 && (
         <div className="frame-tabs">
-          <button
-            className={`frame-tab ${view === 'camera' ? 'active' : ''}`}
-            onClick={() => setView('camera')}
-          >
-            カメラ
-          </button>
-          <button
-            className={`frame-tab ${view === 'screen' ? 'active' : ''}`}
-            onClick={() => setView('screen')}
-          >
-            スクリーン
-          </button>
+          {tabs.map((tab, i) => (
+            <button
+              key={i}
+              className={`frame-tab ${i === activeIdx ? 'active' : ''}`}
+              onClick={() => setActiveIdx(i)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       )}
       <div className="frame-image-container">
         <img
-          src={view === 'camera' ? `/media/${framePath}` : `/media/${screenPath}`}
-          alt={view === 'camera' ? 'Camera frame' : 'Screenshot'}
+          src={`/media/${current.path}`}
+          alt={current.label}
           className="frame-image"
           loading="lazy"
         />

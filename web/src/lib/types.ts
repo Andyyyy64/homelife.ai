@@ -10,6 +10,7 @@ export interface Frame {
   scene_type: 'dark' | 'normal' | 'bright';
   claude_description: string;
   activity: string;
+  screen_extra_paths: string;
 }
 
 export interface Event {

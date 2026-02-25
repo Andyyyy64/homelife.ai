@@ -24,7 +24,7 @@ export function DetailPanel({ frame }: Props) {
         <span className="detail-id">#{frame.id}</span>
       </div>
 
-      <FrameViewer framePath={frame.path} screenPath={frame.screen_path} />
+      <FrameViewer framePath={frame.path} screenPath={frame.screen_path} screenExtraPaths={frame.screen_extra_paths || ''} />
 
       {frame.audio_path && (
         <AudioPlayer audioPath={frame.audio_path} transcription={frame.transcription} />
@@ -32,7 +32,7 @@ export function DetailPanel({ frame }: Props) {
 
       {frame.claude_description && (
         <div className="detail-section">
-          <div className="detail-label">分析</div>
+          <div className="detail-label">分析{frame.activity && ` — ${frame.activity}`}</div>
           <div className="detail-text">{frame.claude_description}</div>
         </div>
       )}
