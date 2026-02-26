@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from life.activity import normalize_activity, get_canonical_categories
 from life.llm.base import LLMProvider
 from life.storage.database import Database
 from life.storage.models import Frame, Summary
@@ -134,21 +135,24 @@ class FrameAnalyzer:
                 "映像と音声の両方を踏まえて説明してください。"
             )
 
-        # Activity classification with existing categories for consistency
+        # Activity classification with canonical + recent categories
+        canonical = get_canonical_categories()
         recent_activities = self._db.get_recent_activities(limit=15)
-        if recent_activities:
-            activities_str = "、".join(recent_activities)
-            parts.append(
-                f"\n既存のアクティビティカテゴリ: [{activities_str}]\n"
-                "可能な限り既存カテゴリを再利用し、表記揺れを避けてください。"
-                "該当するものがなければ新しいカテゴリを作成してください。"
-            )
+        # Merge: canonical first, then any recent ones not already listed
+        all_categories = list(canonical)
+        for a in recent_activities:
+            normalized = normalize_activity(a)
+            if normalized not in all_categories:
+                all_categories.append(normalized)
+        activities_str = "、".join(all_categories)
+        parts.append(
+            f"\nアクティビティカテゴリ一覧: [{activities_str}]\n"
+            "必ずこの一覧から選んでください。どれにも該当しない場合のみ新しいカテゴリを作成してください。"
+        )
 
         parts.append(
             '\n以下のJSON形式で出力してください（JSON以外は出力しないこと）:\n'
             '{"activity": "カテゴリ名", "description": "説明文"}\n'
-            "activityには短いカテゴリ名（例: プログラミング、YouTube視聴、ブラウジング、"
-            "チャット、ゲーム、休憩、離席など）を入れてください。"
         )
 
         prompt = "\n".join(parts)
@@ -177,9 +181,13 @@ class FrameAnalyzer:
             if json_lines:
                 raw = "\n".join(json_lines).strip()
 
+        def _extract(data: dict) -> tuple[str, str]:
+            desc = data.get("description", "")
+            act = normalize_activity(data.get("activity", ""))
+            return desc, act
+
         try:
-            data = json.loads(raw)
-            return data.get("description", ""), data.get("activity", "")
+            return _extract(json.loads(raw))
         except json.JSONDecodeError:
             pass
 
@@ -188,8 +196,7 @@ class FrameAnalyzer:
         end = raw.rfind("}") + 1
         if start >= 0 and end > start:
             try:
-                data = json.loads(raw[start:end])
-                return data.get("description", ""), data.get("activity", "")
+                return _extract(json.loads(raw[start:end]))
             except json.JSONDecodeError:
                 pass
 

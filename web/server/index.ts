@@ -10,6 +10,7 @@ import eventsRoutes from './routes/events.js';
 import statsRoutes from './routes/stats.js';
 import liveRoutes from './routes/live.js';
 import searchRoutes from './routes/search.js';
+import activitiesRoutes from './routes/activities.js';
 
 const app = new Hono();
 
@@ -20,6 +21,7 @@ app.route('/api/events', eventsRoutes);
 app.route('/api/stats', statsRoutes);
 app.route('/api/live', liveRoutes);
 app.route('/api/search', searchRoutes);
+app.route('/api/activities', activitiesRoutes);
 
 // Media files from data directory
 app.get('/media/*', (c) => {
