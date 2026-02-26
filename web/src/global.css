@@ -825,3 +825,179 @@ pre {
   color: var(--text-muted);
   margin-bottom: var(--space-sm);
 }
+
+/* ── Mobile Navigation ── */
+
+.mobile-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+
+.mobile-nav-btn {
+  flex: 1;
+  padding: var(--space-sm);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.mobile-nav-btn:hover {
+  background: var(--bg-hover);
+}
+
+.mobile-nav-btn.active {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* ── Responsive: Tablet (< 768px) ── */
+
+@media (max-width: 767px) {
+  .header {
+    padding: var(--space-xs) var(--space-sm);
+    height: 44px;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  .header-count {
+    display: none;
+  }
+
+  .date-nav {
+    display: none;
+  }
+
+  .date-picker {
+    font-size: 12px;
+    padding: 2px var(--space-xs);
+  }
+
+  .dashboard-btn {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .live-image {
+    width: 48px;
+    height: 36px;
+  }
+
+  .live-indicator {
+    font-size: 9px;
+  }
+
+  /* Full-width panels on mobile */
+  .left-panel,
+  .left-panel--mobile {
+    width: 100%;
+    border-right: none;
+  }
+
+  .detail-panel {
+    width: 100%;
+    border-left: none;
+  }
+
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .timeline {
+    padding: var(--space-sm);
+  }
+
+  /* Bigger touch targets for timeline dots */
+  .timeline-dot {
+    min-width: 12px;
+    min-height: 12px;
+  }
+
+  .timeline-hour {
+    gap: var(--space-sm);
+    padding: var(--space-xs) 0;
+  }
+
+  .timeline-hour-label {
+    width: 36px;
+    font-size: 11px;
+  }
+
+  .timeline-hour-frames {
+    gap: 4px;
+  }
+
+  /* Heatmap responsive */
+  .heatmap {
+    padding: var(--space-xs) var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .heatmap-label {
+    font-size: 9px;
+  }
+
+  .heatmap-cell {
+    height: 18px;
+  }
+
+  .heatmap-hour {
+    font-size: 7px;
+  }
+
+  /* Dashboard full-screen on mobile */
+  .dashboard-overlay {
+    padding: 0;
+  }
+
+  .dashboard {
+    max-width: 100%;
+    max-height: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: none;
+    padding: var(--space-md);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-title {
+    font-size: 16px;
+  }
+
+  /* Search panel */
+  .search-input {
+    font-size: 16px; /* prevent iOS zoom */
+  }
+}
+
+/* ── Responsive: Small phone (< 480px) ── */
+
+@media (max-width: 479px) {
+  .header-left {
+    gap: var(--space-sm);
+  }
+
+  .header-center {
+    gap: var(--space-sm);
+  }
+
+  .frame-image {
+    max-height: 250px;
+  }
+
+  .summary-item-content {
+    font-size: 12px;
+    -webkit-line-clamp: 3;
+  }
+}

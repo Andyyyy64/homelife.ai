@@ -16,6 +16,16 @@ function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+}
+
 export default function App() {
   const [date, setDate] = useState(formatDate(new Date()));
   const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
@@ -23,6 +33,8 @@ export default function App() {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [leftTab, setLeftTab] = useState<'summaries' | 'search'>('summaries');
   const [showDashboard, setShowDashboard] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<'timeline' | 'left' | 'detail'>('timeline');
+  const isMobile = useIsMobile();
 
   const { frames, loading: framesLoading } = useFrames(date);
   const { summaries } = useSummaries(date);
@@ -40,6 +52,11 @@ export default function App() {
   useEffect(() => {
     setSelectedFrame(null);
   }, [date]);
+
+  const handleSelectFrame = useCallback((frame: Frame) => {
+    setSelectedFrame(frame);
+    if (isMobile) setMobilePanel('detail');
+  }, [isMobile]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -67,6 +84,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  const showLeft = !isMobile || mobilePanel === 'left';
+  const showTimeline = !isMobile || mobilePanel === 'timeline';
+  const showDetail = !isMobile || mobilePanel === 'detail';
+
   return (
     <div className="app">
       <Header
@@ -76,47 +97,75 @@ export default function App() {
         frameCount={stats?.frames ?? 0}
         onDashboardClick={() => setShowDashboard(true)}
       />
-      <div className="main-layout">
-        <div className="left-panel">
-          <div className="left-panel-tabs">
-            <button
-              className={`left-panel-tab ${leftTab === 'summaries' ? 'active' : ''}`}
-              onClick={() => setLeftTab('summaries')}
-            >
-              Summaries
-            </button>
-            <button
-              className={`left-panel-tab ${leftTab === 'search' ? 'active' : ''}`}
-              onClick={() => setLeftTab('search')}
-            >
-              Search
-            </button>
-          </div>
-          <div className="left-panel-content">
-            {leftTab === 'summaries' ? (
-              <SummaryPanel
-                summaries={summaries}
-                onTimeClick={(ts) => {
-                  const frame = frames.find((f) => f.timestamp >= ts);
-                  if (frame) setSelectedFrame(frame);
-                }}
-              />
-            ) : (
-              <SearchPanel
-                onSelectFrame={setSelectedFrame}
-                onDateChange={setDate}
-              />
-            )}
-          </div>
+      {isMobile && (
+        <div className="mobile-nav">
+          <button
+            className={`mobile-nav-btn ${mobilePanel === 'left' ? 'active' : ''}`}
+            onClick={() => setMobilePanel('left')}
+          >
+            Summaries
+          </button>
+          <button
+            className={`mobile-nav-btn ${mobilePanel === 'timeline' ? 'active' : ''}`}
+            onClick={() => setMobilePanel('timeline')}
+          >
+            Timeline
+          </button>
+          <button
+            className={`mobile-nav-btn ${mobilePanel === 'detail' ? 'active' : ''}`}
+            onClick={() => setMobilePanel('detail')}
+          >
+            Detail
+          </button>
         </div>
-        <Timeline
-          frames={frames}
-          events={events}
-          selectedFrame={selectedFrame}
-          onSelectFrame={setSelectedFrame}
-          loading={framesLoading}
-        />
-        <DetailPanel frame={selectedFrame} />
+      )}
+      <div className="main-layout">
+        {showLeft && (
+          <div className={`left-panel ${isMobile ? 'left-panel--mobile' : ''}`}>
+            <div className="left-panel-tabs">
+              <button
+                className={`left-panel-tab ${leftTab === 'summaries' ? 'active' : ''}`}
+                onClick={() => setLeftTab('summaries')}
+              >
+                Summaries
+              </button>
+              <button
+                className={`left-panel-tab ${leftTab === 'search' ? 'active' : ''}`}
+                onClick={() => setLeftTab('search')}
+              >
+                Search
+              </button>
+            </div>
+            <div className="left-panel-content">
+              {leftTab === 'summaries' ? (
+                <SummaryPanel
+                  summaries={summaries}
+                  onTimeClick={(ts) => {
+                    const frame = frames.find((f) => f.timestamp >= ts);
+                    if (frame) handleSelectFrame(frame);
+                  }}
+                />
+              ) : (
+                <SearchPanel
+                  onSelectFrame={handleSelectFrame}
+                  onDateChange={setDate}
+                />
+              )}
+            </div>
+          </div>
+        )}
+        {showTimeline && (
+          <Timeline
+            frames={frames}
+            events={events}
+            selectedFrame={selectedFrame}
+            onSelectFrame={handleSelectFrame}
+            loading={framesLoading}
+          />
+        )}
+        {showDetail && (
+          <DetailPanel frame={selectedFrame} />
+        )}
       </div>
       {stats && <ActivityHeatmap activity={stats.activity} />}
       {showDashboard && <Dashboard date={date} onClose={() => setShowDashboard(false)} />}
