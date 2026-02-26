@@ -18,6 +18,26 @@ class GeminiProvider(LLMProvider):
         self._model = model
         self._client = None
 
+    @staticmethod
+    def _extract_text(resp) -> str:
+        """Extract only non-thinking text from Gemini response.
+
+        Gemini 2.5 models may include 'thought' parts (chain-of-thought)
+        which should not be included in the final output.
+        """
+        try:
+            parts = resp.candidates[0].content.parts
+            text_parts = []
+            for part in parts:
+                if getattr(part, "thought", False):
+                    continue
+                if part.text:
+                    text_parts.append(part.text)
+            return "".join(text_parts).strip()
+        except (IndexError, AttributeError):
+            # Fallback to resp.text if structure is unexpected
+            return (resp.text or "").strip()
+
     def _get_client(self):
         if self._client is not None:
             return self._client
@@ -47,7 +67,7 @@ class GeminiProvider(LLMProvider):
                 model=self._model,
                 contents=prompt,
             )
-            text = (resp.text or "").strip()
+            text = self._extract_text(resp)
             return text if text else None
         except Exception:
             log.exception("Gemini generate_text failed")
@@ -78,7 +98,7 @@ class GeminiProvider(LLMProvider):
                 model=self._model,
                 contents=[{"role": "user", "parts": parts}],
             )
-            text = (resp.text or "").strip()
+            text = self._extract_text(resp)
             return text if text else None
         except Exception:
             log.exception("Gemini analyze_images failed")
@@ -120,7 +140,7 @@ class GeminiProvider(LLMProvider):
                     ],
                 }],
             )
-            return (resp.text or "").strip()
+            return self._extract_text(resp)
 
         except Exception:
             log.exception("Gemini transcribe failed for %s", audio_path)
