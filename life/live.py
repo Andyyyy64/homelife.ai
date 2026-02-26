@@ -4,40 +4,57 @@ import logging
 import threading
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 
 log = logging.getLogger(__name__)
 
 
+class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle each MJPEG client connection in its own thread."""
+    daemon_threads = True
+    allow_reuse_address = True
+
+
 class LiveServer:
-    """MJPEG streaming server for live webcam feed."""
+    """MJPEG streaming server for live webcam feed.
+
+    Uses threading.Event for efficient frame delivery — clients wake up
+    immediately on new frames instead of polling with sleep().
+    ThreadingMixIn allows multiple browser tabs/clients simultaneously.
+    """
 
     def __init__(self, port: int = 3002):
         self._port = port
         self._latest_jpeg: bytes | None = None
         self._lock = threading.Lock()
+        self._event = threading.Event()
         self._running = False
-        self._httpd: HTTPServer | None = None
+        self._httpd: _ThreadedHTTPServer | None = None
 
-    def update_frame(self, jpeg_bytes: bytes):
+    def update_frame(self, jpeg_bytes: bytes) -> None:
         with self._lock:
             self._latest_jpeg = jpeg_bytes
+        # Wake all waiting clients instantly
+        self._event.set()
+        self._event.clear()
 
-    def start(self):
+    def start(self) -> None:
         self._running = True
         thread = threading.Thread(target=self._serve, daemon=True)
         thread.start()
         log.info("Live MJPEG server on port %d", self._port)
 
-    def stop(self):
+    def stop(self) -> None:
         self._running = False
+        self._event.set()  # unblock any waiting clients
         if self._httpd:
             self._httpd.shutdown()
 
-    def _serve(self):
+    def _serve(self) -> None:
         server = self
 
         class Handler(BaseHTTPRequestHandler):
-            def do_GET(self):
+            def do_GET(self) -> None:
                 if self.path != "/stream":
                     self.send_error(404)
                     return
@@ -50,21 +67,29 @@ class LiveServer:
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
 
+                last_id: int | None = None
                 try:
                     while server._running:
+                        # Wait for a new frame (up to 1s timeout to check _running)
+                        server._event.wait(timeout=1.0)
                         with server._lock:
                             jpeg = server._latest_jpeg
-                        if jpeg:
+                            frame_id = id(jpeg)
+                        if jpeg and frame_id != last_id:
+                            last_id = frame_id
                             self.wfile.write(b"--frame\r\n")
-                            self.wfile.write(b"Content-Type: image/jpeg\r\n\r\n")
+                            self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                            self.wfile.write(
+                                f"Content-Length: {len(jpeg)}\r\n\r\n".encode()
+                            )
                             self.wfile.write(jpeg)
                             self.wfile.write(b"\r\n")
-                        time.sleep(0.1)
+                            self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError, OSError):
                     pass
 
-            def log_message(self, format, *args):
+            def log_message(self, format: str, *args: object) -> None:
                 pass
 
-        self._httpd = HTTPServer(("0.0.0.0", self._port), Handler)
+        self._httpd = _ThreadedHTTPServer(("0.0.0.0", self._port), Handler)
         self._httpd.serve_forever()

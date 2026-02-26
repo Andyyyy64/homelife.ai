@@ -26,6 +26,9 @@ class Camera:
         self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._config.height)
+        self._cap.set(cv2.CAP_PROP_FPS, 30)
+        # Minimize internal buffer to reduce latency
+        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         log.info("Camera opened: device=%d, %dx%d", self._config.device, self._config.width, self._config.height)
         return True
 
@@ -38,6 +41,12 @@ class Camera:
             log.warning("Failed to read frame")
             return None
         return frame
+
+    def grab(self) -> bool:
+        """Grab a frame without decoding (drains buffer)."""
+        if self._cap is None or not self._cap.isOpened():
+            return False
+        return self._cap.grab()
 
     def close(self):
         if self._cap is not None:
