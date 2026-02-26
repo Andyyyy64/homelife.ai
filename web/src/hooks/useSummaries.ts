@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
+import { todayStr } from '../lib/date';
 import type { Summary } from '../lib/types';
 
 const POLL_INTERVAL = 30_000;
@@ -28,7 +29,7 @@ export function useSummaries(date: string, scale?: string) {
 
   useEffect(() => {
     if (!date) return;
-    const isToday = date === new Date().toISOString().slice(0, 10);
+    const isToday = date === todayStr();
     if (!isToday) return;
 
     const id = setInterval(fetchSummaries, POLL_INTERVAL);

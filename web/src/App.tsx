@@ -10,11 +10,8 @@ import { useFrames } from './hooks/useFrames';
 import { useSummaries } from './hooks/useSummaries';
 import { useEvents } from './hooks/useEvents';
 import { api } from './lib/api';
+import { formatDate, todayStr } from './lib/date';
 import type { Frame, DayStats } from './lib/types';
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);

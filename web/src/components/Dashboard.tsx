@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import { formatDate } from '../lib/date';
 import type { RangeStats, Session, ActivityStats } from '../lib/types';
 
 interface Props {
@@ -42,7 +43,7 @@ function getWeekRange(date: string): [string, string] {
   monday.setDate(d.getDate() + mondayOffset);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return [monday.toISOString().slice(0, 10), sunday.toISOString().slice(0, 10)];
+  return [formatDate(monday), formatDate(sunday)];
 }
 
 // Simple pie chart

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { LiveFeed } from './LiveFeed';
 
 interface Props {
@@ -8,7 +9,18 @@ interface Props {
   onDashboardClick: () => void;
 }
 
+function useClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 export function Header({ date, onDateChange, availableDates, frameCount, onDashboardClick }: Props) {
+  const now = useClock();
+
   return (
     <header className="header">
       <div className="header-left">
@@ -19,6 +31,7 @@ export function Header({ date, onDateChange, availableDates, frameCount, onDashb
         </button>
       </div>
       <div className="header-center">
+        <span className="header-clock">{now.toLocaleTimeString('ja-JP')}</span>
         <input
           type="date"
           value={date}
