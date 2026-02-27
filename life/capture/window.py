@@ -37,6 +37,7 @@ while ($true) {
         [void][FGWin]::GetWindowThreadProcessId($hwnd, [ref]$wpid)
         try { $proc = (Get-Process -Id $wpid -ErrorAction Stop).ProcessName } catch { $proc = "" }
     }
+    if ($proc -eq "ScreenClippingHost") { Start-Sleep -Milliseconds POLL_MS_PLACEHOLDER; continue }
     if ($proc -ne $lastProc -or $title -ne $lastTitle) {
         [Console]::Out.WriteLine("FOCUS|$proc|$title")
         [Console]::Out.Flush()

@@ -13,22 +13,59 @@ Two core values:
 
 ## Features
 
-- **30-second interval capture** — Automatically records webcam + PC screen + audio
-- **Burst screen capture** — Takes 3 screenshots per interval (0s, 10s, 20s) to track temporal changes
-- **AI analysis** — Gemini / Claude analyzes each frame and describes what you're doing
-- **Activity classification** — Auto-categorizes activities (e.g. "Programming", "YouTube", "Browsing")
-- **Multi-scale summaries** — Hierarchical activity summaries from 10min to 24h, generated automatically
-- **Event detection** — Detects scene changes (light→dark) and motion spikes
-- **Live feed** — MJPEG 10fps real-time video stream
-- **Web UI** — Timeline view, frame details, burst screenshot switching, summary browsing
+### Capture & Sensing
 
-## Roadmap
+- **30-second interval capture** — Webcam + PC screen + audio recorded automatically
+- **Change detection** — Extra screenshots/camera frames captured when significant visual changes occur between intervals
+- **Foreground window tracking** — Persistent PowerShell monitor detects app focus changes every 500ms via Win32 API, recording precise per-app usage time
+- **Presence detection** — Face detection + motion analysis to classify presence state (present / absent / sleep)
+- **Audio transcription** — Recorded audio is transcribed via LLM for speech-aware analysis
+- **Live feed** — MJPEG real-time video stream at ~30fps
 
-- [ ] Full-text search — Search across frame analyses and summaries
-- [ ] Daily report auto-generation — Automatic daily reflections delivered to you
-- [ ] Weekly/monthly stats dashboard — Visualize long-term patterns
-- [ ] Improved activity classification — Finer-grained, more accurate categorization
-- [ ] Mobile support / notification integration — Reflection that fits into daily life
+### AI Analysis
+
+- **Frame analysis** — Each frame (camera + screen + audio + active window) is analyzed by Gemini or Claude
+- **Activity classification** — Auto-categorizes into canonical activities (programming, browsing, gaming, sleep, etc.)
+- **Multi-scale summaries** — Hierarchical summaries generated automatically: 10min → 30min → 1h → 6h → 12h → 24h
+- **Daily reports** — Auto-generated end-of-day diary with focus metrics, delivered via webhook
+- **Context awareness** — User profile (`data/context.md`) and recent frame history are included in every LLM prompt
+
+### Web UI
+
+- **Timeline** — Scrollable frame timeline with activity color-coding and click-to-expand detail
+- **Detail panel** — Frame images, screen captures, audio player, transcription, active window info, metadata
+- **Dashboard** — Focus score, category breakdown (pie chart), activity list, app usage (bar chart), weekly chart, session timeline
+- **Search** — Full-text search across frame descriptions, transcriptions, activities, window titles, and summaries (FTS5 trigram)
+- **Activity heatmap** — Visual distribution of activities across hours
+- **Live feed** — Real-time camera stream in browser
+- **Summary panel** — Browse multi-scale summaries with timeline range highlighting
+
+### Notifications
+
+- **Discord** — Daily reports delivered via webhook embed
+- **LINE Notify** — Daily reports via LINE API
+- Test with `life notify-test`
+
+## Architecture
+
+```
+daemon (Python)          web (Node.js/Hono)        frontend (React)
+  ├─ Camera capture        ├─ REST API               ├─ Timeline view
+  ├─ Screen capture        ├─ SQLite read-only       ├─ Frame detail
+  ├─ Audio capture         ├─ Media serving          ├─ Summary panel
+  ├─ Window monitor        ├─ MJPEG proxy            ├─ Live feed
+  ├─ Presence detection    └─ Static file serving    ├─ Dashboard
+  ├─ LLM analysis                                    ├─ Search
+  ├─ Summary generation                              └─ Activity heatmap
+  ├─ Report generation
+  ├─ SQLite write
+  └─ MJPEG live server (port 3002)
+```
+
+- Daemon writes to SQLite, web reads it (WAL mode for concurrency)
+- Window monitor runs a persistent PowerShell process with its own SQLite connection
+- Shared `data/` directory: frames/, screens/, audio/, life.db
+- LLM provider is abstracted: Gemini or Claude, configured in life.toml
 
 ## Setup
 
@@ -36,7 +73,7 @@ Two core values:
 
 - Python 3.12+
 - Node.js 22+
-- WSL2 (uses powershell.exe for screen capture)
+- WSL2 (uses powershell.exe for screen capture and window tracking)
 - Gemini API key or Claude API key
 
 ### Installation
@@ -55,15 +92,22 @@ cd web && npm install
 # Set API key in .env
 echo "GEMINI_API_KEY=your-key-here" > .env
 
-# Configure provider in life.toml (defaults used if omitted)
+# Configure in life.toml
 cat > life.toml << 'EOF'
 [llm]
-provider = "gemini"           # "gemini" or "claude"
+provider = "gemini"
 gemini_model = "gemini-2.5-flash"
 
 [capture]
 interval_sec = 30
-screen_burst_count = 3        # number of burst screenshots
+
+[presence]
+enabled = true
+
+[notify]
+provider = "discord"
+webhook_url = "https://discord.com/api/webhooks/..."
+enabled = false
 EOF
 ```
 
@@ -72,15 +116,16 @@ Add user context to `data/context.md` so the AI can reference your name, environ
 ### Running
 
 ```bash
-# Start daemon (background)
-life start -d
+# Start daemon
+life start       # foreground
+life start -d    # background
 
 # Start web UI
-cd web && npm run dev
+cd web && npm run dev    # development
+cd web && npm start      # production (serves from dist/)
 ```
 
-- Web UI: http://localhost:5173
-- API: http://localhost:3001
+- Web UI: http://localhost:3001
 - Live feed: http://localhost:3002
 
 ### Docker
@@ -105,9 +150,11 @@ For environments with camera/audio devices, configure device mounts in `docker-c
 | `life stats [DATE]` | Show daily statistics |
 | `life summaries [DATE] [--scale 1h]` | Show summaries (10m/30m/1h/6h/12h/24h) |
 | `life events [DATE]` | List detected events |
+| `life report [DATE]` | Generate daily diary report |
 | `life review [DATE] [--json]` | Generate review package |
+| `life notify-test` | Test webhook notification |
 
-## Configuration Options
+## Configuration
 
 All options in `life.toml`:
 
@@ -120,7 +167,8 @@ interval_sec = 30       # capture interval (seconds)
 width = 640
 height = 480
 jpeg_quality = 85
-screen_burst_count = 3  # burst screenshots per interval
+audio_device = ""       # ALSA device (empty = auto-detect)
+audio_sample_rate = 44100
 
 [analysis]
 motion_threshold = 0.02
@@ -131,6 +179,17 @@ brightness_bright = 180.0
 provider = "gemini"              # "gemini" or "claude"
 claude_model = "haiku"
 gemini_model = "gemini-2.5-flash"
+
+[presence]
+enabled = true
+absent_threshold_ticks = 3       # ticks before absent state
+sleep_start_hour = 23
+sleep_end_hour = 8
+
+[notify]
+provider = "discord"             # "discord" or "line"
+webhook_url = ""
+enabled = false
 ```
 
 ## Web API
@@ -144,13 +203,42 @@ gemini_model = "gemini-2.5-flash"
 | `GET /api/events?date=...` | List events |
 | `GET /api/stats?date=...` | Daily statistics |
 | `GET /api/stats/activities?date=...` | Activity breakdown with duration |
+| `GET /api/stats/apps?date=...` | App usage tracking (from window events) |
 | `GET /api/stats/dates` | List dates with data |
+| `GET /api/stats/range?from=...&to=...` | Per-day stats for date range |
+| `GET /api/sessions?date=...` | Activity sessions (consecutive grouping) |
+| `GET /api/reports?date=...` | Get daily report |
+| `GET /api/reports` | List recent reports |
+| `GET /api/activities` | List activity categories |
+| `GET /api/search?q=...&from=...&to=...` | Full-text search |
+| `GET /api/live/stream` | MJPEG stream proxy |
 | `GET /media/{path}` | Serve image/audio files |
+
+## Database Schema
+
+### frames
+Core capture data: timestamp, camera path, screen path, audio path, transcription, brightness, motion score, scene type, LLM description, activity category, foreground window.
+
+### window_events
+Focus change events recorded by the window monitor: timestamp, process name, window title. Used for precise app usage duration calculation via `LEAD()` window function.
+
+### summaries
+Multi-scale summaries (10m to 24h) with timestamp, scale, content, and frame count.
+
+### events
+Detected events: scene changes, motion spikes, presence state changes.
+
+### reports
+Daily auto-generated reports with content, frame count, and focus percentage.
+
+### FTS indexes
+`frames_fts` (trigram) over description, transcription, activity, foreground_window. `summaries_fts` (trigram) over content.
 
 ## Tech Stack
 
-- **Backend**: Python 3.12 / Click / OpenCV / SQLite
+- **Backend**: Python 3.12 / Click / OpenCV / SQLite (WAL mode)
 - **LLM**: Google Gemini / Anthropic Claude (abstracted provider layer)
+- **Window tracking**: PowerShell / Win32 P/Invoke (GetForegroundWindow)
 - **Frontend**: React 19 / TypeScript / Vite
 - **Web Server**: Hono + better-sqlite3
-- **Infra**: Docker Compose / WSL2 + powershell.exe (screen capture)
+- **Infra**: Docker Compose / WSL2

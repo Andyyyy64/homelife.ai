@@ -10,11 +10,9 @@ Two core values:
 2. **Productivity visibility** — Show "how focused was I?" and "where did my time go?" in numbers.
 
 Improvement priorities:
-1. Full-text search (across frame analyses and summaries)
-2. Daily report auto-generation
-3. Weekly/monthly stats dashboard
-4. Improved activity classification accuracy
-5. Mobile support / notification integration
+1. Improved activity classification accuracy
+2. Mobile support / notification integration
+3. Long-term trend analysis (weekly/monthly patterns)
 
 ## Architecture
 
@@ -23,13 +21,17 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
   ├─ Camera capture        ├─ REST API               ├─ Timeline view
   ├─ Screen capture        ├─ SQLite read-only       ├─ Frame detail
   ├─ Audio capture         ├─ Media serving          ├─ Summary panel
-  ├─ LLM analysis          ├─ MJPEG proxy            ├─ Live feed
-  ├─ Summary generation    └─ Static file serving    └─ Activity heatmap
+  ├─ Window monitor        ├─ MJPEG proxy            ├─ Live feed
+  ├─ Presence detection    └─ Static file serving    ├─ Dashboard
+  ├─ LLM analysis                                    ├─ Search
+  ├─ Summary generation                              └─ Activity heatmap
+  ├─ Report generation
   ├─ SQLite write
   └─ MJPEG live server (port 3002)
 ```
 
-- daemon writes to SQLite, web reads it (WAL mode for concurrency)
+- Daemon writes to SQLite, web reads it (WAL mode for concurrency)
+- Window monitor runs a persistent PowerShell process with its own SQLite connection
 - Shared `data/` directory: frames/, screens/, audio/, life.db
 - LLM provider is abstracted: Gemini or Claude, configured in life.toml
 
@@ -39,16 +41,33 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 - `life/cli.py` — CLI entry point
 - `life/daemon.py` — Main observer loop
 - `life/config.py` — Config loading from life.toml
+- `life/analyzer.py` — Frame analysis and summary generation
+- `life/report.py` — Daily report generation
 - `life/llm/` — LLM provider abstraction (base, gemini, claude)
-- `life/capture/` — Camera, screen (PowerShell/WSL2), audio (ALSA)
-- `life/storage/database.py` — SQLite schema and queries
+- `life/capture/` — Camera, screen (PowerShell/WSL2), audio (ALSA), window (Win32 P/Invoke)
+- `life/analysis/` — Motion, scene, change detection, presence, transcription
+- `life/storage/database.py` — SQLite schema, migrations, queries
+- `life/storage/models.py` — Frame, Event, Summary, Report dataclasses
+- `life/notify.py` — Discord/LINE webhook notifications
 - `web/server/` — Hono API server + routes
 - `web/server/db.ts` — SQLite connection (better-sqlite3, read-only)
+- `web/server/routes/stats.ts` — Stats, activities, app usage, date range endpoints
 - `web/src/` — React frontend
+- `web/src/components/Dashboard.tsx` — Dashboard with focus score, pie chart, app usage, sessions
+- `web/src/components/DetailPanel.tsx` — Frame detail with images, audio, window info, metadata
 - `life.toml` — Runtime config
 - `.env` — API keys (GEMINI_API_KEY)
 - `data/` — Runtime data (DB, frames, screens, audio)
 - `docker-compose.yml` — Container orchestration
+
+## Database Tables
+
+- `frames` — Core capture data (path, screen, audio, transcription, analysis, activity, foreground_window)
+- `window_events` — Focus change events (timestamp, process_name, window_title) for precise app duration tracking
+- `summaries` — Multi-scale summaries (10m, 30m, 1h, 6h, 12h, 24h)
+- `events` — Scene changes, motion spikes, presence state changes
+- `reports` — Daily auto-generated reports
+- `frames_fts` / `summaries_fts` — FTS5 trigram indexes for full-text search
 
 ## Conventions
 
