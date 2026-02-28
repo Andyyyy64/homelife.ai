@@ -26,6 +26,7 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
   ├─ LLM analysis                                    ├─ Search
   ├─ Summary generation                              └─ Activity heatmap
   ├─ Report generation
+  ├─ Chat integration
   ├─ SQLite write
   └─ MJPEG live server (port 3002)
 ```
@@ -50,6 +51,7 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 - `daemon/storage/database.py` — SQLite schema, migrations, queries
 - `daemon/storage/models.py` — Frame, Event, Summary, Report dataclasses
 - `daemon/notify.py` — Discord/LINE webhook notifications
+- `daemon/chat/` — Chat platform adapters (base, discord, manager)
 - `web/server/` — Hono API server + routes
 - `web/server/db.ts` — SQLite connection (better-sqlite3, read-only)
 - `web/server/routes/stats.ts` — Stats, activities, app usage, date range endpoints
@@ -71,6 +73,8 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 - `summaries` — Multi-scale summaries (10m, 30m, 1h, 6h, 12h, 24h)
 - `events` — Scene changes, motion spikes, presence state changes
 - `reports` — Daily auto-generated reports
+- `memos` — Daily user memos (editable today only)
+- `chat_messages` — Messages from chat platforms (Discord, etc.) with unified schema
 - `frames_fts` / `summaries_fts` — FTS5 trigram indexes for full-text search
 
 ## Conventions

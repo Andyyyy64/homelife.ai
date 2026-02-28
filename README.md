@@ -42,6 +42,29 @@ Two core values:
 - **Mobile** — Responsive layout with tab switching (Summaries / Timeline / Detail) on narrow viewports.
 - **Auto-refresh** — 30-second polling for new frames, summaries, and events when viewing today's data.
 
+### Chat Platform Integration
+
+Collects conversations from external chat platforms to enrich the "externalized memory." Knowing what you were discussing — and with whom — adds a critical dimension to daily activity tracking.
+
+**Architecture:** Adapter pattern with a unified `ChatSource` interface. Each platform has its own adapter; users enable only what they use via `life.toml`.
+
+| Platform | Status | Method | DMs | Servers/Groups |
+|----------|--------|--------|-----|-----------------|
+| **Discord** | Implemented | REST API polling (user token) | Yes | Yes |
+| **LINE** | Planned | Chat export import | Yes | Yes |
+| **Slack** | Planned | Bot token + Events API | — | Yes |
+| **Telegram** | Planned | Bot API / TDLib | Yes | Yes |
+| **WhatsApp** | Planned | Chat export import | Yes | Yes |
+| **Teams** | Planned | Microsoft Graph API | Yes | Yes |
+
+**How it works:**
+1. Platform adapter polls for new messages in a background thread
+2. Messages are stored in `chat_messages` table with unified schema (platform, channel, author, content, timestamp)
+3. Recent conversations are injected into LLM prompts — frame analysis sees "user was discussing X on Discord" alongside screen/camera data
+4. Daily reports include a chat activity summary (message counts per channel)
+
+**Discord specifics:** Uses a user token for full access (servers + DMs + group DMs). On first run, backfills past N months of history (`backfill_months`, default 3) by paginating backwards through all channels. Thereafter, polls every 60s (configurable) for new messages, comparing `last_message_id` per channel to fetch only deltas. Handles rate limiting with automatic retry.
+
 ### Notifications
 
 - **Discord** — Daily reports via webhook embed (4000 char limit, purple accent)
@@ -60,6 +83,7 @@ daemon/ (Python)         web/ (Node.js/Hono)       frontend (React)
   ├─ LLM analysis                                    ├─ Search
   ├─ Summary generation                              ├─ Activity heatmap
   ├─ Report generation                               └─ Mobile responsive
+  ├─ Chat integration
   ├─ Change detection
   ├─ SQLite write
   └─ MJPEG live server (port 3002)
@@ -79,6 +103,7 @@ daemon/ (Python)         web/ (Node.js/Hono)       frontend (React)
 | Audio recording | ALSA capture during interval | Per tick |
 | Window monitor | PowerShell → `window_events` table | 500ms polls |
 | Change detection | Screen/camera hash comparison | Every 1s between ticks |
+| Chat poller | Discord/etc → `chat_messages` table | Every 60s (configurable) |
 | Live HTTP server | Serve MJPEG to clients | On demand |
 
 ## Project Structure
@@ -93,6 +118,10 @@ daemon/                  # Python package
   ├─ report.py           # Daily report generation
   ├─ notify.py           # Discord / LINE webhook notifications
   ├─ live.py             # MJPEG streaming server
+  ├─ chat/               # Chat platform integration
+  │   ├─ base.py         # Abstract ChatSource interface
+  │   ├─ discord.py      # Discord adapter (user token, REST polling)
+  │   └─ manager.py      # ChatManager: orchestrates adapters
   ├─ llm/                # LLM provider abstraction
   │   ├─ base.py         # Abstract base class
   │   ├─ gemini.py       # Google Gemini (image + audio support)
@@ -264,6 +293,16 @@ sleep_end_hour = 8
 provider = "discord"             # "discord" or "line"
 webhook_url = ""
 enabled = false
+
+[chat]
+enabled = false                  # master switch for chat integration
+
+[chat.discord]
+enabled = false
+user_token = ""                  # Discord user token
+user_id = ""                     # Your Discord user ID
+poll_interval = 60               # seconds between polls
+backfill_months = 3              # fetch past N months on first run (0 = skip)
 ```
 
 ## Web API
@@ -309,6 +348,12 @@ Dynamic activity → meta-category mapping. Primary key is activity name, with m
 
 ### reports
 Daily auto-generated reports with content, frame count, and focus percentage.
+
+### chat_messages
+Messages collected from chat platforms: platform, platform-specific message ID, channel/guild info, author, is_self flag, content, timestamp, and JSON metadata for attachments/embeds. Unique constraint on (platform, platform_message_id).
+
+### memos
+Daily user memos: date (primary key), content, updated_at. Editable only for today, read-only for past dates.
 
 ### FTS indexes
 `frames_fts` (trigram) over description, transcription, activity, foreground_window. `summaries_fts` (trigram) over content.
