@@ -171,6 +171,16 @@ class Database:
             CREATE INDEX IF NOT EXISTS idx_chat_messages_platform ON chat_messages(platform);
             CREATE INDEX IF NOT EXISTS idx_chat_messages_channel ON chat_messages(platform, channel_id);
         """)
+        # Knowledge table
+        self._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS knowledge (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                generated_at TEXT NOT NULL,
+                content TEXT NOT NULL,
+                source_summary TEXT DEFAULT '',
+                period_days INTEGER DEFAULT 0
+            );
+        """)
         # FTS tables — recreate if schema changed (e.g. new columns added)
         self._ensure_fts()
         self._rebuild_fts_if_needed()
@@ -383,6 +393,85 @@ class Database:
             timestamp=datetime.fromisoformat(row["timestamp"]),
             metadata=row["metadata"] or "",
         )
+
+    # --- Knowledge ---
+
+    def get_latest_knowledge(self) -> str:
+        """Get the latest knowledge profile content. Returns empty string if none."""
+        row = self._conn.execute(
+            "SELECT content FROM knowledge ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return row["content"] if row else ""
+
+    def get_latest_knowledge_time(self) -> datetime | None:
+        """Get the generation time of the latest knowledge profile."""
+        row = self._conn.execute(
+            "SELECT generated_at FROM knowledge ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return datetime.fromisoformat(row["generated_at"]) if row else None
+
+    def insert_knowledge(self, content: str, source_summary: str = "", period_days: int = 0) -> int:
+        """Insert a new knowledge profile. Returns the new row ID."""
+        cur = self._conn.execute(
+            "INSERT INTO knowledge (generated_at, content, source_summary, period_days) "
+            "VALUES (?, ?, ?, ?)",
+            (datetime.now().isoformat(), content, source_summary, period_days),
+        )
+        self._conn.commit()
+        return cur.lastrowid  # type: ignore[return-value]
+
+    # --- Knowledge data collection helpers ---
+
+    def get_chat_channel_stats(self, limit: int = 20) -> list[dict]:
+        """Get message counts per channel, ordered by activity."""
+        rows = self._conn.execute(
+            "SELECT platform, channel_name, guild_name, "
+            "COUNT(*) as msg_count, "
+            "COUNT(DISTINCT author_name) as author_count, "
+            "MAX(timestamp) as last_active "
+            "FROM chat_messages GROUP BY platform, channel_id "
+            "ORDER BY msg_count DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_chat_samples_by_channel(self, channel_name: str, limit: int = 10) -> list[ChatMessage]:
+        """Get recent messages from a specific channel."""
+        rows = self._conn.execute(
+            "SELECT * FROM chat_messages WHERE channel_name=? "
+            "ORDER BY timestamp DESC LIMIT ?",
+            (channel_name, limit),
+        ).fetchall()
+        return [self._row_to_chat_message(r) for r in reversed(rows)]
+
+    def get_recent_summaries_by_scale(self, scale: str, limit: int = 7) -> list[Summary]:
+        """Get the most recent summaries of a given scale."""
+        rows = self._conn.execute(
+            "SELECT * FROM summaries WHERE scale=? ORDER BY timestamp DESC LIMIT ?",
+            (scale, limit),
+        ).fetchall()
+        return [self._row_to_summary(r) for r in reversed(rows)]
+
+    def get_recent_memos(self, limit: int = 14) -> list[dict]:
+        """Get recent memos, newest first."""
+        rows = self._conn.execute(
+            "SELECT date, content FROM memos WHERE content != '' "
+            "ORDER BY date DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_hourly_activity_distribution(self, days: int = 14) -> list[dict]:
+        """Get activity distribution by hour over the last N days."""
+        since = (datetime.now() - timedelta(days=days)).isoformat()
+        rows = self._conn.execute(
+            "SELECT CAST(strftime('%%H', timestamp) AS INTEGER) as hour, "
+            "activity, COUNT(*) as cnt "
+            "FROM frames WHERE timestamp >= ? AND activity != '' "
+            "GROUP BY hour, activity ORDER BY hour, cnt DESC",
+            (since,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def close(self):
         self._conn.close()

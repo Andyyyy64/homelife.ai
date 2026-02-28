@@ -18,6 +18,7 @@ from daemon.analysis.scene import SceneAnalyzer
 from daemon.analysis.transcribe import Transcriber
 from daemon.activity import ActivityManager
 from daemon.analyzer import FrameAnalyzer, SummaryGenerator
+from daemon.knowledge import KnowledgeGenerator
 from daemon.report import ReportGenerator
 from daemon.capture.audio import AudioCapture
 from daemon.capture.camera import Camera
@@ -85,6 +86,8 @@ class Daemon:
         self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db, self._activity_mgr)
         self._summary_gen = SummaryGenerator(provider, self._db, config.data_dir)
         self._report_gen = ReportGenerator(provider, self._db, config.data_dir, self._activity_mgr)
+        self._knowledge_gen = KnowledgeGenerator(provider, self._db, config.data_dir)
+        self._knowledge_interval_days = config.knowledge_interval_days
         self._chat_mgr = ChatManager(config.db_path, config.chat)
 
         # Track last summary time per scale
@@ -330,6 +333,9 @@ class Daemon:
         # Multi-scale summaries
         self._check_summaries(now)
 
+        # Knowledge profile generation
+        self._check_knowledge(now)
+
         # Auto-generate daily report when day changes
         today_str = now.strftime("%Y-%m-%d")
         if today_str != self._last_report_date:
@@ -363,6 +369,20 @@ class Daemon:
             if summary:
                 self._last_summary[scale] = now
                 log.info("Summary [%s]: %s", scale, summary.content[:80])
+
+    def _check_knowledge(self, now: datetime):
+        """Generate knowledge profile if interval has elapsed."""
+        last_time = self._db.get_latest_knowledge_time()
+        if last_time:
+            elapsed = (now - last_time).total_seconds()
+            if elapsed < self._knowledge_interval_days * 86400:
+                return
+
+        log.info("Generating knowledge profile...")
+        try:
+            self._knowledge_gen.generate()
+        except Exception:
+            log.exception("Knowledge generation failed")
 
     def _send_report_notification(self, report_date, report):
         """Send daily report via configured notification channel."""

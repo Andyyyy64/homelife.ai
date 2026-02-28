@@ -99,6 +99,15 @@ class ReportGenerator:
         if memo_content:
             memo_section = f"## ユーザーメモ\n「{memo_content}」\n\n"
 
+        # Knowledge profile
+        knowledge_section = ""
+        knowledge = self._db.get_latest_knowledge()
+        if knowledge:
+            knowledge_section = (
+                "## 知識プロファイル\n"
+                f"{knowledge}\n\n"
+            )
+
         # Chat messages summary for the day
         chat_section = ""
         chat_msgs = self._db.get_chat_messages_for_date(target_date)
@@ -119,6 +128,7 @@ class ReportGenerator:
             f"{context_prefix}"
             f"以下は {target_date.isoformat()} の1日の記録です。\n\n"
             f"{memo_section}"
+            f"{knowledge_section}"
             f"{chat_section}"
             f"## アクティビティ内訳\n{activity_summary}\n\n"
             f"## 時系列サマリー\n{summary_text}\n\n"

@@ -483,6 +483,49 @@ def notify_test(ctx):
         console.print("[red]Failed to send notification. Check logs and webhook_url.[/red]")
 
 
+@cli.command()
+@click.option("--regen", is_flag=True, help="Regenerate knowledge profile")
+@click.pass_context
+def knowledge(ctx, regen: bool):
+    """Show or regenerate the knowledge profile."""
+    config: Config = ctx.obj["config"]
+
+    from daemon.storage.database import Database
+
+    if not config.db_path.exists():
+        console.print("[dim]No data yet[/dim]")
+        return
+
+    db = Database(config.db_path)
+
+    if regen:
+        from daemon.knowledge import KnowledgeGenerator
+        from daemon.llm import create_provider
+
+        provider = create_provider(
+            config.llm.provider,
+            claude_model=config.llm.claude_model,
+            gemini_model=config.llm.gemini_model,
+        )
+        gen = KnowledgeGenerator(provider, db, config.data_dir)
+        console.print("[dim]Generating knowledge profile...[/dim]")
+        content = gen.generate()
+        if content:
+            console.print(Panel(content, title="Knowledge Profile (regenerated)", border_style="green"))
+        else:
+            console.print("[yellow]Could not generate knowledge profile (no data or LLM failure)[/yellow]")
+    else:
+        content = db.get_latest_knowledge()
+        if content:
+            last_time = db.get_latest_knowledge_time()
+            ts = last_time.strftime("%Y-%m-%d %H:%M") if last_time else "unknown"
+            console.print(Panel(content, title=f"Knowledge Profile (generated: {ts})", border_style="blue"))
+        else:
+            console.print("[dim]No knowledge profile yet. Run with --regen to generate.[/dim]")
+
+    db.close()
+
+
 def _parse_date(s: str) -> date:
     try:
         return date.fromisoformat(s)

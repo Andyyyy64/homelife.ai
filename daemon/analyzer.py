@@ -97,6 +97,14 @@ class FrameAnalyzer:
                 "※参考情報として活用してください。\n"
             )
 
+        # Inject knowledge profile
+        knowledge = self._db.get_latest_knowledge()
+        if knowledge:
+            parts.append(
+                "【知識プロファイル】蓄積データから抽出されたユーザーの知識:\n"
+                f"{knowledge}\n"
+            )
+
         # Inject recent chat messages for context
         chat_since = datetime.now() - timedelta(minutes=30)
         chat_msgs = self._db.get_recent_chat_messages(chat_since, limit=20)
@@ -323,6 +331,13 @@ class SummaryGenerator:
                 "【今日のメモ】ユーザーが記入した本日のメモ:\n"
                 f"「{today_memo}」\n"
                 "※参考情報として活用してください。\n"
+            )
+        # Knowledge profile
+        knowledge = self._db.get_latest_knowledge()
+        if knowledge:
+            parts.append(
+                "【知識プロファイル】蓄積データから抽出されたユーザーの知識:\n"
+                f"{knowledge}\n"
             )
         # Recent chat messages
         chat_since = datetime.now() - timedelta(hours=1)

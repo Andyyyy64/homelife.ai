@@ -73,6 +73,7 @@ class Config:
     presence: PresenceConfig = field(default_factory=PresenceConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
     chat: ChatConfig = field(default_factory=ChatConfig)
+    knowledge_interval_days: int = 7
     pid_file: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.pid")
     db_path: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.db")
 
@@ -111,6 +112,8 @@ class Config:
                         cfg.notify.enabled = bool(v)
                     else:
                         setattr(cfg.notify, k, str(v))
+        if "knowledge_interval_days" in data:
+            cfg.knowledge_interval_days = int(data["knowledge_interval_days"])
         if "chat" in data:
             chat_data = data["chat"]
             if isinstance(chat_data.get("enabled"), bool):
