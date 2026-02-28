@@ -6,10 +6,10 @@ import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from life.activity import get_meta_category
-from life.llm.base import LLMProvider
-from life.storage.database import Database
-from life.storage.models import Report
+from daemon.activity import get_meta_category
+from daemon.llm.base import LLMProvider
+from daemon.storage.database import Database
+from daemon.storage.models import Report
 
 log = logging.getLogger(__name__)
 

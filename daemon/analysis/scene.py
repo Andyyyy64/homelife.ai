@@ -3,7 +3,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from life.storage.models import SceneType
+from daemon.storage.models import SceneType
 
 
 class SceneAnalyzer:

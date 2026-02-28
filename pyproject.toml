@@ -14,10 +14,10 @@ dependencies = [
 ]
 
 [project.scripts]
-life = "life.cli:cli"
+life = "daemon.cli:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["life"]
+packages = ["daemon"]
 
 [build-system]
 requires = ["hatchling"]

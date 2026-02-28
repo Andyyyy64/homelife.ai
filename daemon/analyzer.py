@@ -5,10 +5,10 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from life.activity import normalize_activity, get_canonical_categories
-from life.llm.base import LLMProvider
-from life.storage.database import Database
-from life.storage.models import Frame, Summary
+from daemon.activity import normalize_activity, get_canonical_categories
+from daemon.llm.base import LLMProvider
+from daemon.storage.database import Database
+from daemon.storage.models import Frame, Summary
 
 log = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ import urllib.request
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from life.config import NotifyConfig
+    from daemon.config import NotifyConfig
 
 log = logging.getLogger(__name__)
 

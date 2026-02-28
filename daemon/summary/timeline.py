@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from life.storage.database import Database
-from life.storage.models import SCALES
+from daemon.storage.database import Database
+from daemon.storage.models import SCALES
 
 
 @dataclass

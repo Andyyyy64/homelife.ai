@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from life.config import Config
+from daemon.config import Config
 
 console = Console()
 
@@ -65,7 +65,7 @@ def start(ctx, background: bool):
         console.print(f"[green]Daemon started in background (PID {proc.pid})[/green]")
     else:
         console.print("[green]Starting life observer (life.ai watching)...[/green]")
-        from life.daemon import Daemon
+        from daemon.daemon import Daemon
         daemon = Daemon(config)
         daemon.run()
 
@@ -112,9 +112,9 @@ def status(ctx):
     else:
         console.print("[red]● Daemon stopped[/red]")
 
-    from life.capture.frame_store import FrameStore
-    from life.capture.screen import ScreenCapture
-    from life.capture.audio import AudioCapture
+    from daemon.capture.frame_store import FrameStore
+    from daemon.capture.screen import ScreenCapture
+    from daemon.capture.audio import AudioCapture
     store = FrameStore(config.data_dir)
     screen_store = ScreenCapture(config.data_dir)
     audio_store = AudioCapture(config.data_dir)
@@ -122,7 +122,7 @@ def status(ctx):
     disk = store.get_disk_usage() + screen_store.get_disk_usage() + audio_store.get_disk_usage()
     disk_mb = disk / (1024 * 1024)
 
-    from life.storage.database import Database
+    from daemon.storage.database import Database
     if config.db_path.exists():
         db = Database(config.db_path)
         db_frames = db.get_frame_count_for_date(date.today())
@@ -149,8 +149,8 @@ def capture(ctx):
     """Capture a single test frame."""
     config: Config = ctx.obj["config"]
 
-    from life.capture.camera import Camera
-    from life.capture.frame_store import FrameStore
+    from daemon.capture.camera import Camera
+    from daemon.capture.frame_store import FrameStore
 
     camera = Camera(config.capture)
     if not camera.open():
@@ -178,14 +178,14 @@ def look(ctx):
     """Capture a frame and have life.ai analyze it right now."""
     config: Config = ctx.obj["config"]
 
-    from life.analyzer import FrameAnalyzer
-    from life.capture.camera import Camera
-    from life.capture.frame_store import FrameStore
-    from life.capture.screen import ScreenCapture
-    from life.llm import create_provider
-    from life.storage.database import Database
-    from life.storage.models import Frame
-    from life.analysis.scene import SceneAnalyzer
+    from daemon.analyzer import FrameAnalyzer
+    from daemon.capture.camera import Camera
+    from daemon.capture.frame_store import FrameStore
+    from daemon.capture.screen import ScreenCapture
+    from daemon.llm import create_provider
+    from daemon.storage.database import Database
+    from daemon.storage.models import Frame
+    from daemon.analysis.scene import SceneAnalyzer
 
     camera = Camera(config.capture)
     if not camera.open():
@@ -242,7 +242,7 @@ def recent(ctx, count: int):
     """Show recent frame analyses by life.ai."""
     config: Config = ctx.obj["config"]
 
-    from life.storage.database import Database
+    from daemon.storage.database import Database
 
     if not config.db_path.exists():
         console.print("[dim]No data yet[/dim]")
@@ -283,9 +283,9 @@ def today(ctx, target_date: str | None):
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
-    from life.storage.database import Database
-    from life.summary.formatter import SummaryFormatter
-    from life.summary.timeline import TimelineBuilder
+    from daemon.storage.database import Database
+    from daemon.summary.formatter import SummaryFormatter
+    from daemon.summary.timeline import TimelineBuilder
 
     if not config.db_path.exists():
         console.print("[dim]No data yet[/dim]")
@@ -306,9 +306,9 @@ def stats(ctx, target_date: str | None):
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
-    from life.storage.database import Database
-    from life.summary.formatter import SummaryFormatter
-    from life.summary.timeline import TimelineBuilder
+    from daemon.storage.database import Database
+    from daemon.summary.formatter import SummaryFormatter
+    from daemon.summary.timeline import TimelineBuilder
 
     if not config.db_path.exists():
         console.print("[dim]No data yet[/dim]")
@@ -330,7 +330,7 @@ def summaries(ctx, target_date: str | None, scale: str | None):
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
-    from life.storage.database import Database
+    from daemon.storage.database import Database
 
     if not config.db_path.exists():
         console.print("[dim]No data yet[/dim]")
@@ -360,7 +360,7 @@ def events(ctx, target_date: str | None):
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
-    from life.storage.database import Database
+    from daemon.storage.database import Database
 
     if not config.db_path.exists():
         console.print("[dim]No data yet[/dim]")
@@ -396,9 +396,9 @@ def report(ctx, target_date: str | None):
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
-    from life.llm import create_provider
-    from life.report import ReportGenerator
-    from life.storage.database import Database
+    from daemon.llm import create_provider
+    from daemon.report import ReportGenerator
+    from daemon.storage.database import Database
 
     if not config.db_path.exists():
         console.print("[dim]No data yet[/dim]")
@@ -429,8 +429,8 @@ def review(ctx, target_date: str | None, as_json: bool):
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
-    from life.claude.review import ReviewPackager
-    from life.storage.database import Database
+    from daemon.claude.review import ReviewPackager
+    from daemon.storage.database import Database
 
     if not config.db_path.exists():
         console.print("[dim]No data yet[/dim]")
@@ -465,13 +465,13 @@ def notify_test(ctx):
         console.print("[dim]  \\[notify]\n  enabled = true\n  provider = \"discord\"  # or \"line\"\n  webhook_url = \"https://discord.com/api/webhooks/...\"[/dim]")
         return
 
-    from life.notify import send_notification
+    from daemon.notify import send_notification
 
     console.print(f"[dim]Sending test to {config.notify.provider}...[/dim]")
     ok = send_notification(
         config.notify,
         "life.ai Test Notification",
-        "This is a test message from life.ai. If you see this, notifications are working correctly!",
+        "This is a test message from daemon.ai. If you see this, notifications are working correctly!",
     )
     if ok:
         console.print("[green]Notification sent successfully![/green]")

@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from life.summary.timeline import TimelineBuilder
+from daemon.summary.timeline import TimelineBuilder
 
 
 class SummaryFormatter:

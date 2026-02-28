@@ -14,7 +14,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Daemon
-.venv/bin/python -m life start &
+.venv/bin/python -m daemon start &
 DAEMON_PID=$!
 
 # Web server (API + frontend)

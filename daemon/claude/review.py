@@ -4,9 +4,9 @@ import json
 from datetime import date
 from pathlib import Path
 
-from life.config import Config
-from life.storage.database import Database
-from life.summary.timeline import TimelineBuilder
+from daemon.config import Config
+from daemon.storage.database import Database
+from daemon.summary.timeline import TimelineBuilder
 
 
 class ReviewPackager:

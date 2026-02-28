@@ -11,24 +11,24 @@ from pathlib import Path
 
 import cv2
 
-from life.analysis.change import ChangeDetector
-from life.analysis.motion import MotionDetector
-from life.analysis.presence import PresenceDetector
-from life.analysis.scene import SceneAnalyzer
-from life.analysis.transcribe import Transcriber
-from life.analyzer import FrameAnalyzer, SummaryGenerator
-from life.report import ReportGenerator
-from life.capture.audio import AudioCapture
-from life.capture.camera import Camera
-from life.capture.frame_store import FrameStore
-from life.capture.screen import ScreenCapture
-from life.capture.window import WindowMonitor
-from life.config import Config
-from life.live import LiveServer
-from life.llm import create_provider
-from life.notify import send_notification
-from life.storage.database import Database
-from life.storage.models import Event, Frame, SceneType, SCALES
+from daemon.analysis.change import ChangeDetector
+from daemon.analysis.motion import MotionDetector
+from daemon.analysis.presence import PresenceDetector
+from daemon.analysis.scene import SceneAnalyzer
+from daemon.analysis.transcribe import Transcriber
+from daemon.analyzer import FrameAnalyzer, SummaryGenerator
+from daemon.report import ReportGenerator
+from daemon.capture.audio import AudioCapture
+from daemon.capture.camera import Camera
+from daemon.capture.frame_store import FrameStore
+from daemon.capture.screen import ScreenCapture
+from daemon.capture.window import WindowMonitor
+from daemon.config import Config
+from daemon.live import LiveServer
+from daemon.llm import create_provider
+from daemon.notify import send_notification
+from daemon.storage.database import Database
+from daemon.storage.models import Event, Frame, SceneType, SCALES
 
 CHANGE_CHECK_INTERVAL = 1  # seconds between change checks
 

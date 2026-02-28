@@ -37,18 +37,18 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 
 ## Key Paths
 
-- `life/` — Python package (daemon, capture, analysis, LLM, storage)
-- `life/cli.py` — CLI entry point
-- `life/daemon.py` — Main observer loop
-- `life/config.py` — Config loading from life.toml
-- `life/analyzer.py` — Frame analysis and summary generation
-- `life/report.py` — Daily report generation
-- `life/llm/` — LLM provider abstraction (base, gemini, claude)
-- `life/capture/` — Camera, screen (PowerShell/WSL2), audio (ALSA), window (Win32 P/Invoke)
-- `life/analysis/` — Motion, scene, change detection, presence, transcription
-- `life/storage/database.py` — SQLite schema, migrations, queries
-- `life/storage/models.py` — Frame, Event, Summary, Report dataclasses
-- `life/notify.py` — Discord/LINE webhook notifications
+- `daemon/` — Python package (daemon, capture, analysis, LLM, storage)
+- `daemon/cli.py` — CLI entry point
+- `daemon/daemon.py` — Main observer loop
+- `daemon/config.py` — Config loading from life.toml
+- `daemon/analyzer.py` — Frame analysis and summary generation
+- `daemon/report.py` — Daily report generation
+- `daemon/llm/` — LLM provider abstraction (base, gemini, claude)
+- `daemon/capture/` — Camera, screen (PowerShell/WSL2), audio (ALSA), window (Win32 P/Invoke)
+- `daemon/analysis/` — Motion, scene, change detection, presence, transcription
+- `daemon/storage/database.py` — SQLite schema, migrations, queries
+- `daemon/storage/models.py` — Frame, Event, Summary, Report dataclasses
+- `daemon/notify.py` — Discord/LINE webhook notifications
 - `web/server/` — Hono API server + routes
 - `web/server/db.ts` — SQLite connection (better-sqlite3, read-only)
 - `web/server/routes/stats.ts` — Stats, activities, app usage, date range endpoints

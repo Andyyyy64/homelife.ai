@@ -1,6 +1,6 @@
-from life.llm.base import LLMProvider
-from life.llm.claude import ClaudeProvider
-from life.llm.gemini import GeminiProvider
+from daemon.llm.base import LLMProvider
+from daemon.llm.claude import ClaudeProvider
+from daemon.llm.gemini import GeminiProvider
 
 _PROVIDERS: dict[str, type[LLMProvider]] = {
     "claude": ClaudeProvider,

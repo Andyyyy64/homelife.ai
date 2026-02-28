@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY pyproject.toml .
-COPY life/ life/
+COPY daemon/ daemon/
 RUN pip install --no-cache-dir .
 
 VOLUME /app/data

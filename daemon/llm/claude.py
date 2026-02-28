@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from life.llm.base import LLMProvider
+from daemon.llm.base import LLMProvider
 
 log = logging.getLogger(__name__)
 
