@@ -27,6 +27,7 @@ from daemon.capture.window import WindowMonitor
 from daemon.config import Config
 from daemon.live import LiveServer
 from daemon.llm import create_provider
+from daemon.chat.manager import ChatManager
 from daemon.notify import send_notification
 from daemon.storage.database import Database
 from daemon.storage.models import Event, Frame, SceneType, SCALES
@@ -84,6 +85,7 @@ class Daemon:
         self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db, self._activity_mgr)
         self._summary_gen = SummaryGenerator(provider, self._db, config.data_dir)
         self._report_gen = ReportGenerator(provider, self._db, config.data_dir, self._activity_mgr)
+        self._chat_mgr = ChatManager(config.db_path, config.chat)
 
         # Track last summary time per scale
         # Initialize to now so we wait the full interval before first generation
@@ -104,6 +106,7 @@ class Daemon:
         self._running = True
         self._live.start()
         self._window.start()
+        self._chat_mgr.start()
         self._start_live_thread()
         log.info("Daemon started (interval=%ds)", self._config.capture.interval_sec)
 
@@ -129,6 +132,7 @@ class Daemon:
             log.exception("Daemon crashed")
         finally:
             self._running = False
+            self._chat_mgr.stop()
             self._window.stop()
             self._live.stop()
             self._camera.close()

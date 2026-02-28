@@ -50,6 +50,21 @@ class NotifyConfig:
 
 
 @dataclass
+class DiscordChatConfig:
+    enabled: bool = False
+    user_token: str = ""
+    user_id: str = ""  # Your Discord user ID (to identify own messages)
+    poll_interval: int = 60  # seconds between polls
+    backfill_months: int = 3  # fetch past N months on first run (0 = no backfill)
+
+
+@dataclass
+class ChatConfig:
+    enabled: bool = False
+    discord: DiscordChatConfig = field(default_factory=DiscordChatConfig)
+
+
+@dataclass
 class Config:
     data_dir: Path = field(default_factory=lambda: DEFAULT_DATA_DIR)
     capture: CaptureConfig = field(default_factory=CaptureConfig)
@@ -57,6 +72,7 @@ class Config:
     llm: LLMConfig = field(default_factory=LLMConfig)
     presence: PresenceConfig = field(default_factory=PresenceConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
+    chat: ChatConfig = field(default_factory=ChatConfig)
     pid_file: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.pid")
     db_path: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.db")
 
@@ -95,4 +111,19 @@ class Config:
                         cfg.notify.enabled = bool(v)
                     else:
                         setattr(cfg.notify, k, str(v))
+        if "chat" in data:
+            chat_data = data["chat"]
+            if isinstance(chat_data.get("enabled"), bool):
+                cfg.chat.enabled = chat_data["enabled"]
+            if "discord" in chat_data:
+                d = chat_data["discord"]
+                if isinstance(d.get("enabled"), bool):
+                    cfg.chat.discord.enabled = d["enabled"]
+                for k in ("user_token", "user_id"):
+                    if k in d:
+                        setattr(cfg.chat.discord, k, str(d[k]))
+                if "poll_interval" in d:
+                    cfg.chat.discord.poll_interval = int(d["poll_interval"])
+                if "backfill_months" in d:
+                    cfg.chat.discord.backfill_months = int(d["backfill_months"])
         return cfg

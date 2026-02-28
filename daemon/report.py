@@ -99,10 +99,27 @@ class ReportGenerator:
         if memo_content:
             memo_section = f"## ユーザーメモ\n「{memo_content}」\n\n"
 
+        # Chat messages summary for the day
+        chat_section = ""
+        chat_msgs = self._db.get_chat_messages_for_date(target_date)
+        if chat_msgs:
+            # Group by channel for readability
+            by_channel: dict[str, list] = {}
+            for m in chat_msgs:
+                ch_key = f"{m.platform}/{m.guild_name}/{m.channel_name}" if m.guild_name else f"{m.platform}/{m.channel_name}"
+                by_channel.setdefault(ch_key, []).append(m)
+            chat_lines = []
+            for ch_key, msgs in by_channel.items():
+                self_count = sum(1 for m in msgs if m.is_self)
+                others_count = len(msgs) - self_count
+                chat_lines.append(f"- {ch_key}: {len(msgs)}件 (自分{self_count}件, 相手{others_count}件)")
+            chat_section = "## チャット活動\n" + "\n".join(chat_lines) + "\n\n"
+
         prompt = (
             f"{context_prefix}"
             f"以下は {target_date.isoformat()} の1日の記録です。\n\n"
             f"{memo_section}"
+            f"{chat_section}"
             f"## アクティビティ内訳\n{activity_summary}\n\n"
             f"## 時系列サマリー\n{summary_text}\n\n"
         )

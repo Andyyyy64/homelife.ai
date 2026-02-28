@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
-from .models import Frame, Event, Summary, Report, SceneType
+from .models import Frame, Event, Summary, Report, ChatMessage, SceneType
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS frames (
@@ -149,6 +149,28 @@ class Database:
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
         """)
+        # Chat messages table
+        self._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform TEXT NOT NULL,
+                platform_message_id TEXT NOT NULL,
+                channel_id TEXT NOT NULL,
+                channel_name TEXT DEFAULT '',
+                guild_id TEXT DEFAULT '',
+                guild_name TEXT DEFAULT '',
+                author_id TEXT NOT NULL,
+                author_name TEXT DEFAULT '',
+                is_self BOOLEAN DEFAULT 0,
+                content TEXT DEFAULT '',
+                timestamp TEXT NOT NULL,
+                metadata TEXT DEFAULT '',
+                UNIQUE(platform, platform_message_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_platform ON chat_messages(platform);
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_channel ON chat_messages(platform, channel_id);
+        """)
         # FTS tables — recreate if schema changed (e.g. new columns added)
         self._ensure_fts()
         self._rebuild_fts_if_needed()
@@ -283,6 +305,84 @@ class Database:
             (d.isoformat(), content),
         )
         self._conn.commit()
+
+    # --- Chat messages ---
+
+    def insert_chat_message(self, msg: ChatMessage) -> int | None:
+        """Insert a chat message. Returns ID, or None if duplicate."""
+        try:
+            cur = self._conn.execute(
+                "INSERT INTO chat_messages "
+                "(platform, platform_message_id, channel_id, channel_name, "
+                "guild_id, guild_name, author_id, author_name, is_self, "
+                "content, timestamp, metadata) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    msg.platform, msg.platform_message_id, msg.channel_id,
+                    msg.channel_name, msg.guild_id, msg.guild_name,
+                    msg.author_id, msg.author_name, msg.is_self,
+                    msg.content, msg.timestamp.isoformat(), msg.metadata,
+                ),
+            )
+            self._conn.commit()
+            return cur.lastrowid
+        except self._conn.IntegrityError:
+            return None
+
+    def get_chat_last_ids(self, platform: str) -> dict[str, str]:
+        """Get last message ID per channel for a platform."""
+        rows = self._conn.execute(
+            "SELECT channel_id, platform_message_id FROM chat_messages "
+            "WHERE platform=? AND id IN ("
+            "  SELECT MAX(id) FROM chat_messages WHERE platform=? GROUP BY channel_id"
+            ")",
+            (platform, platform),
+        ).fetchall()
+        return {r["channel_id"]: r["platform_message_id"] for r in rows}
+
+    def get_recent_chat_messages(self, since: datetime, limit: int = 50) -> list[ChatMessage]:
+        """Get recent chat messages across all platforms since a given time."""
+        rows = self._conn.execute(
+            "SELECT * FROM chat_messages WHERE timestamp >= ? "
+            "ORDER BY timestamp DESC LIMIT ?",
+            (since.isoformat(), limit),
+        ).fetchall()
+        return [self._row_to_chat_message(r) for r in reversed(rows)]
+
+    def get_chat_messages_for_date(self, d: date, platform: str | None = None) -> list[ChatMessage]:
+        """Get all chat messages for a given date."""
+        start = datetime(d.year, d.month, d.day).isoformat()
+        end = datetime(d.year, d.month, d.day, 23, 59, 59).isoformat()
+        if platform:
+            rows = self._conn.execute(
+                "SELECT * FROM chat_messages WHERE timestamp BETWEEN ? AND ? AND platform=? "
+                "ORDER BY timestamp",
+                (start, end, platform),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM chat_messages WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp",
+                (start, end),
+            ).fetchall()
+        return [self._row_to_chat_message(r) for r in rows]
+
+    @staticmethod
+    def _row_to_chat_message(row: sqlite3.Row) -> ChatMessage:
+        return ChatMessage(
+            id=row["id"],
+            platform=row["platform"],
+            platform_message_id=row["platform_message_id"],
+            channel_id=row["channel_id"],
+            channel_name=row["channel_name"] or "",
+            guild_id=row["guild_id"] or "",
+            guild_name=row["guild_name"] or "",
+            author_id=row["author_id"],
+            author_name=row["author_name"] or "",
+            is_self=bool(row["is_self"]),
+            content=row["content"] or "",
+            timestamp=datetime.fromisoformat(row["timestamp"]),
+            metadata=row["metadata"] or "",
+        )
 
     def close(self):
         self._conn.close()

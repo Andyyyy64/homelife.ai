@@ -97,6 +97,22 @@ class FrameAnalyzer:
                 "※参考情報として活用してください。\n"
             )
 
+        # Inject recent chat messages for context
+        chat_since = datetime.now() - timedelta(minutes=30)
+        chat_msgs = self._db.get_recent_chat_messages(chat_since, limit=20)
+        if chat_msgs:
+            chat_lines = []
+            for m in chat_msgs:
+                ts = m.timestamp.strftime("%H:%M")
+                sender = "自分" if m.is_self else m.author_name
+                ch = f"{m.guild_name}/{m.channel_name}" if m.guild_name else m.channel_name
+                chat_lines.append(f"  [{ts}] {m.platform}/{ch} {sender}: {m.content[:100]}")
+            parts.append(
+                "【最近のチャット会話】（直近30分のチャットプラットフォームでの会話）\n"
+                + "\n".join(chat_lines) + "\n"
+                "※この会話内容も踏まえて、ユーザーの活動を理解してください。\n"
+            )
+
         # Recent context: pass last few frame analyses for continuity
         recent = self._db.get_recent_frames(limit=5)
         if recent:
@@ -307,6 +323,19 @@ class SummaryGenerator:
                 "【今日のメモ】ユーザーが記入した本日のメモ:\n"
                 f"「{today_memo}」\n"
                 "※参考情報として活用してください。\n"
+            )
+        # Recent chat messages
+        chat_since = datetime.now() - timedelta(hours=1)
+        chat_msgs = self._db.get_recent_chat_messages(chat_since, limit=30)
+        if chat_msgs:
+            chat_lines = []
+            for m in chat_msgs:
+                ts = m.timestamp.strftime("%H:%M")
+                sender = "自分" if m.is_self else m.author_name
+                ch = f"{m.guild_name}/{m.channel_name}" if m.guild_name else m.channel_name
+                chat_lines.append(f"  [{ts}] {m.platform}/{ch} {sender}: {m.content[:120]}")
+            parts.append(
+                "【最近のチャット会話】\n" + "\n".join(chat_lines) + "\n"
             )
         return "\n".join(parts) + ("\n" if parts else "")
 

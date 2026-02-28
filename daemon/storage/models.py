@@ -65,3 +65,20 @@ class Report:
     generated_at: datetime = field(default_factory=datetime.now)
     frame_count: int = 0
     focus_pct: float = 0.0
+
+
+@dataclass
+class ChatMessage:
+    id: int | None = None
+    platform: str = ""  # "discord", "line", "slack", ...
+    platform_message_id: str = ""
+    channel_id: str = ""
+    channel_name: str = ""
+    guild_id: str = ""
+    guild_name: str = ""
+    author_id: str = ""
+    author_name: str = ""
+    is_self: bool = False
+    content: str = ""
+    timestamp: datetime = field(default_factory=datetime.now)
+    metadata: str = ""  # JSON for platform-specific extras
