@@ -131,6 +131,16 @@ class Database:
             );
             CREATE INDEX IF NOT EXISTS idx_window_events_timestamp ON window_events(timestamp);
         """)
+        # Activity mappings table
+        self._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS activity_mappings (
+                activity TEXT PRIMARY KEY,
+                meta_category TEXT NOT NULL DEFAULT 'other',
+                first_seen TEXT NOT NULL DEFAULT (datetime('now')),
+                frame_count INTEGER DEFAULT 0
+            );
+        """)
+        self._seed_activity_mappings()
         # FTS tables — recreate if schema changed (e.g. new columns added)
         self._ensure_fts()
         self._rebuild_fts_if_needed()
@@ -198,6 +208,56 @@ class Database:
                 (summary_id, row["content"] or ""),
             )
 
+    def _seed_activity_mappings(self):
+        """Seed activity_mappings from existing frames if table is empty."""
+        count = self._conn.execute("SELECT COUNT(*) FROM activity_mappings").fetchone()[0]
+        if count > 0:
+            return
+
+        rows = self._conn.execute(
+            "SELECT activity, COUNT(*) as cnt FROM frames "
+            "WHERE activity != '' GROUP BY activity"
+        ).fetchall()
+        for r in rows:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO activity_mappings (activity, meta_category, frame_count) "
+                "VALUES (?, 'other', ?)",
+                (r["activity"], r["cnt"]),
+            )
+
+        self._conn.commit()
+
+    # --- Activity mappings ---
+
+    def get_all_activity_mappings(self) -> list[dict]:
+        """Get all activity → meta_category mappings, ordered by frame_count DESC."""
+        rows = self._conn.execute(
+            "SELECT activity, meta_category, frame_count FROM activity_mappings "
+            "ORDER BY frame_count DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_frequent_activities(self, limit: int = 15) -> list[str]:
+        """Get top activities by frame_count."""
+        rows = self._conn.execute(
+            "SELECT activity FROM activity_mappings "
+            "WHERE frame_count > 0 ORDER BY frame_count DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [r["activity"] for r in rows]
+
+    def upsert_activity_mapping(self, activity: str, meta_category: str):
+        """Insert or update an activity mapping, incrementing frame_count."""
+        self._conn.execute(
+            "INSERT INTO activity_mappings (activity, meta_category, frame_count) "
+            "VALUES (?, ?, 1) "
+            "ON CONFLICT(activity) DO UPDATE SET "
+            "frame_count = frame_count + 1, "
+            "meta_category = CASE WHEN excluded.meta_category != 'other' THEN excluded.meta_category ELSE activity_mappings.meta_category END",
+            (activity, meta_category),
+        )
+        self._conn.commit()
+
     def close(self):
         self._conn.close()
 
@@ -244,15 +304,6 @@ class Database:
         )
         self._sync_frame_fts(frame_id, is_update=True)
         self._conn.commit()
-
-    def get_recent_activities(self, limit: int = 15) -> list[str]:
-        """Get the most common recent activity categories."""
-        rows = self._conn.execute(
-            "SELECT activity, COUNT(*) as cnt FROM frames "
-            "WHERE activity != '' GROUP BY activity ORDER BY cnt DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        return [r["activity"] for r in rows]
 
     def get_activity_stats(self, d: date) -> list[dict]:
         """Get activity statistics for a given date."""

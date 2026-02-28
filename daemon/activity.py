@@ -1,38 +1,21 @@
-"""Activity category normalization and meta-category mapping."""
+"""Activity category normalization and meta-category mapping.
+
+Uses DB-stored activity_mappings as the source of truth instead of hardcoded lists.
+"""
 
 from __future__ import annotations
 
+import logging
 import unicodedata
+from typing import TYPE_CHECKING
 
-# Canonical activity categories
-CANONICAL_ACTIVITIES: list[str] = [
-    "プログラミング",
-    "YouTube視聴",
-    "ブラウジング",
-    "チャット",
-    "SNS",
-    "ゲーム",
-    "休憩",
-    "離席",
-    "ドキュメント閲覧",
-    "コンテンツ制作",
-    "会話",
-    "読書",
-    "音楽",
-    "食事",
-    "睡眠",
-    "不在",
-]
+if TYPE_CHECKING:
+    from daemon.storage.database import Database
 
-# Meta-categories for productivity scoring
-META_CATEGORIES: dict[str, list[str]] = {
-    "focus": ["プログラミング", "ドキュメント閲覧", "コンテンツ制作", "読書"],
-    "communication": ["チャット", "会話"],
-    "entertainment": ["YouTube視聴", "ゲーム", "SNS", "音楽"],
-    "browsing": ["ブラウジング"],
-    "break": ["休憩", "離席", "食事"],
-    "idle": ["睡眠", "不在"],
-}
+log = logging.getLogger(__name__)
+
+# Valid meta-categories (UI/logic constants)
+VALID_META_CATEGORIES = {"focus", "communication", "entertainment", "browsing", "break", "idle", "other"}
 
 
 def _normalize_str(s: str) -> str:
@@ -77,52 +60,93 @@ def _similarity(a: str, b: str) -> float:
     return (2.0 * lcs_len) / (m + n)
 
 
-def normalize_activity(raw: str) -> str:
-    """Normalize an activity name to its canonical form.
+class ActivityManager:
+    """Manages activity normalization and meta-category mapping using DB-stored mappings."""
 
-    Uses fuzzy matching to find the best canonical category.
-    If no good match is found (similarity < threshold), returns the
-    original string to allow new categories to emerge.
-    """
-    if not raw:
-        return raw
+    def __init__(self, db: Database):
+        self._db = db
+        self._cache: dict[str, str] = {}  # activity -> meta_category
+        self._reload()
 
-    cleaned = raw.strip()
-    normalized = _normalize_str(cleaned)
+    def _reload(self):
+        """Load all mappings from DB into cache."""
+        self._cache.clear()
+        for row in self._db.get_all_activity_mappings():
+            self._cache[row["activity"]] = row["meta_category"]
 
-    # Exact match against canonical list
-    for canonical in CANONICAL_ACTIVITIES:
-        if _normalize_str(canonical) == normalized:
-            return canonical
+    def get_frequent(self, limit: int = 15) -> list[str]:
+        """Get most frequently used activities for LLM prompt examples."""
+        return self._db.get_frequent_activities(limit)
 
-    # Fuzzy match — find best candidate
-    threshold = 0.5
-    best_score = 0.0
-    best_match = ""
-    for canonical in CANONICAL_ACTIVITIES:
-        score = _similarity(cleaned, canonical)
-        if score > best_score:
-            best_score = score
-            best_match = canonical
+    def normalize_and_register(self, raw: str, meta: str) -> tuple[str, str]:
+        """Normalize an activity name and register it in DB.
 
-    if best_score >= threshold:
-        return best_match
+        Returns (normalized_activity, meta_category).
+        """
+        if not raw:
+            return raw, "other"
 
-    return cleaned
+        cleaned = raw.strip()
+        meta = meta.strip().lower() if meta else "other"
+        if meta not in VALID_META_CATEGORIES:
+            meta = "other"
 
+        normalized = _normalize_str(cleaned)
 
-def get_meta_category(activity: str) -> str:
-    """Get the meta-category for a given activity.
+        # Exact match against cached activities
+        for known in self._cache:
+            if _normalize_str(known) == normalized:
+                self._db.upsert_activity_mapping(known, meta)
+                return known, self._cache[known]
 
-    Returns 'other' if no meta-category is found.
-    """
-    normalized = normalize_activity(activity)
-    for meta, activities in META_CATEGORIES.items():
-        if normalized in activities:
-            return meta
-    return "other"
+        # Fuzzy match — find best candidate
+        threshold = 0.7
+        best_score = 0.0
+        best_match = ""
+        for known in self._cache:
+            score = _similarity(cleaned, known)
+            if score > best_score:
+                best_score = score
+                best_match = known
 
+        if best_score >= threshold:
+            self._db.upsert_activity_mapping(best_match, meta)
+            return best_match, self._cache[best_match]
 
-def get_canonical_categories() -> list[str]:
-    """Return list of all canonical activity category names."""
-    return list(CANONICAL_ACTIVITIES)
+        # New activity — register it
+        self._db.upsert_activity_mapping(cleaned, meta)
+        self._cache[cleaned] = meta
+        log.info("New activity registered: %s [%s]", cleaned, meta)
+        return cleaned, meta
+
+    def get_meta_category(self, activity: str) -> str:
+        """Get the meta-category for a given activity.
+
+        Uses exact match first, then fuzzy match, returns 'other' as fallback.
+        """
+        if not activity:
+            return "other"
+
+        # Exact match
+        if activity in self._cache:
+            return self._cache[activity]
+
+        # Normalized exact match
+        normalized = _normalize_str(activity)
+        for known, meta in self._cache.items():
+            if _normalize_str(known) == normalized:
+                return meta
+
+        # Fuzzy match
+        best_score = 0.0
+        best_meta = "other"
+        for known, meta in self._cache.items():
+            score = _similarity(activity, known)
+            if score > best_score:
+                best_score = score
+                best_meta = meta
+
+        if best_score >= 0.7:
+            return best_meta
+
+        return "other"

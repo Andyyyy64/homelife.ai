@@ -1,32 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Frame } from '../lib/types';
-
-const META_CATEGORIES: Record<string, string[]> = {
-  focus: ['プログラミング', 'ドキュメント閲覧', 'コンテンツ制作', '読書'],
-  communication: ['チャット', '会話'],
-  entertainment: ['YouTube視聴', 'ゲーム', 'SNS', '音楽'],
-  browsing: ['ブラウジング'],
-  break: ['休憩', '離席', '食事'],
-  idle: ['睡眠', '不在'],
-};
-
-const META_COLORS: Record<string, string> = {
-  focus: '#60a860',
-  communication: '#6088d0',
-  entertainment: '#d06060',
-  browsing: '#d0a840',
-  break: '#888888',
-  idle: '#444466',
-  other: '#a060b0',
-};
-
-function activityColor(activity: string): string {
-  if (!activity) return META_COLORS.other;
-  for (const [meta, activities] of Object.entries(META_CATEGORIES)) {
-    if (activities.includes(activity)) return META_COLORS[meta];
-  }
-  return META_COLORS.other;
-}
+import { activityColor } from '../lib/activity';
 
 interface Props {
   frame: Frame | null;

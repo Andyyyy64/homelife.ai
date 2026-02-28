@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from daemon.activity import normalize_activity, get_canonical_categories
+from daemon.activity import ActivityManager
 from daemon.llm.base import LLMProvider
 from daemon.storage.database import Database
 from daemon.storage.models import Frame, Summary
@@ -27,10 +27,11 @@ def _load_context(data_dir: Path) -> str:
 class FrameAnalyzer:
     """Analyzes webcam frames + screen captures via an LLM provider."""
 
-    def __init__(self, provider: LLMProvider, data_dir: Path, db: Database):
+    def __init__(self, provider: LLMProvider, data_dir: Path, db: Database, activity_mgr: ActivityManager):
         self._provider = provider
         self._data_dir = data_dir
         self._db = db
+        self._activity_mgr = activity_mgr
 
     def analyze(
         self,
@@ -191,32 +192,46 @@ class FrameAnalyzer:
                     "画面にも変化がない場合のみ「睡眠」または「不在」と分類してください。"
                 )
 
-        # Activity classification with strict canonical list
-        canonical = get_canonical_categories()
-        categories_numbered = "\n".join(f"  {i+1}. {c}" for i, c in enumerate(canonical))
-        parts.append(
-            f"\n以下のアクティビティカテゴリから、最も適切なものを1つ選んでください:\n"
-            f"{categories_numbered}\n\n"
-            "【重要】activityフィールドには上記リストの文字列をそのままコピーしてください。\n"
-            "表記を変えたり、組み合わせたり(例:「プログラミングと会話」)、独自のカテゴリを作らないでください。\n"
-            "複数の活動が同時に行われている場合は、メインの活動を1つだけ選んでください。"
-        )
+        # Activity classification with dynamic examples
+        frequent = self._activity_mgr.get_frequent(limit=15)
+
+        if frequent:
+            examples = "、".join(frequent)
+            parts.append(
+                f"\n【アクティビティ分類】\n"
+                f"これまでに使用されたカテゴリ: {examples}\n"
+                "上記のカテゴリに当てはまる場合はそのまま使ってください。\n"
+                "当てはまらない場合は、簡潔な日本語で新しいカテゴリ名を付けてください。\n"
+                "複数の活動が同時に行われている場合は、メインの活動を1つだけ選んでください。"
+            )
+        else:
+            parts.append(
+                "\n【アクティビティ分類】\n"
+                "この人の活動を簡潔な日本語カテゴリ名で表してください（例: プログラミング、休憩、ブラウジング）。"
+            )
 
         parts.append(
             '\n以下のJSON形式で出力してください（JSON以外は出力しないこと）:\n'
-            '{"activity": "上記リストから選択", "description": "説明文"}\n'
+            '{"activity": "カテゴリ名", "meta_category": "focus|communication|entertainment|browsing|break|idle", "description": "説明文"}\n'
+            "meta_categoryは上記6つのいずれか1つを選んでください。\n"
         )
 
         prompt = "\n".join(parts)
         raw = self._provider.analyze_images(prompt, image_paths)
-        return self._parse_analysis(raw or "")
+        desc, activity, meta = self._parse_analysis(raw or "")
+
+        # Normalize and register via ActivityManager
+        if activity:
+            activity, _ = self._activity_mgr.normalize_and_register(activity, meta)
+
+        return desc, activity
 
     @staticmethod
-    def _parse_analysis(raw: str) -> tuple[str, str]:
-        """Parse JSON analysis response. Returns (description, activity)."""
+    def _parse_analysis(raw: str) -> tuple[str, str, str]:
+        """Parse JSON analysis response. Returns (description, activity, meta_category)."""
         raw = raw.strip()
         if not raw:
-            return "", ""
+            return "", "", "other"
 
         # Try to extract JSON from the response
         # Handle cases where LLM wraps JSON in markdown code blocks
@@ -233,10 +248,11 @@ class FrameAnalyzer:
             if json_lines:
                 raw = "\n".join(json_lines).strip()
 
-        def _extract(data: dict) -> tuple[str, str]:
+        def _extract(data: dict) -> tuple[str, str, str]:
             desc = data.get("description", "")
-            act = normalize_activity(data.get("activity", ""))
-            return desc, act
+            act = data.get("activity", "")
+            meta = data.get("meta_category", "other")
+            return desc, act, meta
 
         try:
             return _extract(json.loads(raw))
@@ -254,7 +270,7 @@ class FrameAnalyzer:
 
         # Final fallback: treat entire text as description
         log.warning("Could not parse JSON from analysis, using raw text")
-        return raw, ""
+        return raw, "", "other"
 
 
 class SummaryGenerator:

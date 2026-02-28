@@ -222,7 +222,9 @@ def look(ctx):
         gemini_model=config.llm.gemini_model,
     )
     db = Database(config.db_path)
-    analyzer = FrameAnalyzer(provider, config.data_dir, db)
+    from daemon.activity import ActivityManager
+    activity_mgr = ActivityManager(db)
+    analyzer = FrameAnalyzer(provider, config.data_dir, db, activity_mgr)
     description, activity = analyzer.analyze(frame)
 
     if description:
@@ -410,7 +412,9 @@ def report(ctx, target_date: str | None):
         gemini_model=config.llm.gemini_model,
     )
     db = Database(config.db_path)
-    gen = ReportGenerator(provider, db, config.data_dir)
+    from daemon.activity import ActivityManager
+    activity_mgr = ActivityManager(db)
+    gen = ReportGenerator(provider, db, config.data_dir, activity_mgr)
     rpt = gen.generate(d)
     if rpt:
         console.print(Panel(rpt.content, title=f"Daily Report — {d.isoformat()}", border_style="blue"))

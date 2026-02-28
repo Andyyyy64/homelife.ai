@@ -16,6 +16,7 @@ from daemon.analysis.motion import MotionDetector
 from daemon.analysis.presence import PresenceDetector
 from daemon.analysis.scene import SceneAnalyzer
 from daemon.analysis.transcribe import Transcriber
+from daemon.activity import ActivityManager
 from daemon.analyzer import FrameAnalyzer, SummaryGenerator
 from daemon.report import ReportGenerator
 from daemon.capture.audio import AudioCapture
@@ -76,12 +77,13 @@ class Daemon:
         )
         log.info("LLM provider: %s", config.llm.provider)
 
+        self._activity_mgr = ActivityManager(self._db)
         self._transcriber = Transcriber(
             provider, context_path=config.data_dir / "context.md",
         )
-        self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db)
+        self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db, self._activity_mgr)
         self._summary_gen = SummaryGenerator(provider, self._db, config.data_dir)
-        self._report_gen = ReportGenerator(provider, self._db, config.data_dir)
+        self._report_gen = ReportGenerator(provider, self._db, config.data_dir, self._activity_mgr)
 
         # Track last summary time per scale
         # Initialize to now so we wait the full interval before first generation

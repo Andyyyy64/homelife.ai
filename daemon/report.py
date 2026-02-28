@@ -6,7 +6,7 @@ import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from daemon.activity import get_meta_category
+from daemon.activity import ActivityManager
 from daemon.llm.base import LLMProvider
 from daemon.storage.database import Database
 from daemon.storage.models import Report
@@ -27,11 +27,12 @@ def _load_context(data_dir: Path) -> str:
 class ReportGenerator:
     """Generates daily diary-style reports."""
 
-    def __init__(self, provider: LLMProvider, db: Database, data_dir: Path):
+    def __init__(self, provider: LLMProvider, db: Database, data_dir: Path, activity_mgr: ActivityManager):
         self._provider = provider
         self._db = db
         self._data_dir = data_dir
         self._context = _load_context(data_dir)
+        self._activity_mgr = activity_mgr
 
     def generate(self, target_date: date) -> Report | None:
         """Generate a daily report for the given date."""
@@ -44,13 +45,16 @@ class ReportGenerator:
         events = self._db.get_events_for_date(target_date)
 
         # Calculate focus percentage (exclude idle frames from denominator)
+        def _meta(act: str) -> str:
+            return self._activity_mgr.get_meta_category(act)
+
         focus_frames = sum(
             1 for f in frames
-            if f.activity and get_meta_category(f.activity) == "focus"
+            if f.activity and _meta(f.activity) == "focus"
         )
         active_frames = sum(
             1 for f in frames
-            if not f.activity or get_meta_category(f.activity) != "idle"
+            if not f.activity or _meta(f.activity) != "idle"
         )
         focus_pct = (focus_frames / active_frames * 100) if active_frames else 0
 
@@ -63,7 +67,7 @@ class ReportGenerator:
         activity_lines = []
         for act, count in sorted(activity_counts.items(), key=lambda x: -x[1]):
             minutes = count * 30 // 60  # rough estimate
-            meta = get_meta_category(act)
+            meta = _meta(act)
             activity_lines.append(f"- {act}: ~{minutes}分 [{meta}]")
         activity_summary = "\n".join(activity_lines)
 

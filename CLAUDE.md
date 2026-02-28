@@ -41,6 +41,7 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 - `daemon/cli.py` — CLI entry point
 - `daemon/daemon.py` — Main observer loop
 - `daemon/config.py` — Config loading from life.toml
+- `daemon/activity.py` — ActivityManager: DB-backed activity normalization + meta-category mapping
 - `daemon/analyzer.py` — Frame analysis and summary generation
 - `daemon/report.py` — Daily report generation
 - `daemon/llm/` — LLM provider abstraction (base, gemini, claude)
@@ -52,7 +53,9 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 - `web/server/` — Hono API server + routes
 - `web/server/db.ts` — SQLite connection (better-sqlite3, read-only)
 - `web/server/routes/stats.ts` — Stats, activities, app usage, date range endpoints
+- `web/server/routes/activities.ts` — Activity mappings from DB (cached 60s)
 - `web/src/` — React frontend
+- `web/src/lib/activity.ts` — Shared activity colors, labels, dynamic meta-category mapping
 - `web/src/components/Dashboard.tsx` — Dashboard with focus score, pie chart, app usage, sessions
 - `web/src/components/DetailPanel.tsx` — Frame detail with images, audio, window info, metadata
 - `life.toml` — Runtime config
@@ -64,6 +67,7 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 
 - `frames` — Core capture data (path, screen, audio, transcription, analysis, activity, foreground_window)
 - `window_events` — Focus change events (timestamp, process_name, window_title) for precise app duration tracking
+- `activity_mappings` — Dynamic activity → meta_category mapping (seeded from existing frames, updated by LLM)
 - `summaries` — Multi-scale summaries (10m, 30m, 1h, 6h, 12h, 24h)
 - `events` — Scene changes, motion spikes, presence state changes
 - `reports` — Daily auto-generated reports

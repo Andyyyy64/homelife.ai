@@ -10,6 +10,7 @@ import { useFrames } from './hooks/useFrames';
 import { useSummaries } from './hooks/useSummaries';
 import { useEvents } from './hooks/useEvents';
 import { api } from './lib/api';
+import { loadActivityMappings } from './lib/activity';
 import { formatDate, todayStr } from './lib/date';
 import type { Frame, DayStats } from './lib/types';
 import type { SummaryTimeRange } from './components/SummaryPanel';
@@ -43,6 +44,7 @@ export default function App() {
   }, [date]);
 
   useEffect(() => {
+    loadActivityMappings().catch(console.error);
     api.stats.dates().then(setAvailableDates).catch(console.error);
   }, []);
 

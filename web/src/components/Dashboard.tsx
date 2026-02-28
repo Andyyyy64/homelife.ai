@@ -1,32 +1,13 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/date';
+import { META_COLORS, META_LABELS } from '../lib/activity';
 import type { RangeStats, Session, ActivityStats, AppStat } from '../lib/types';
 
 interface Props {
   date: string;
   onClose: () => void;
 }
-
-const META_COLORS: Record<string, string> = {
-  focus: '#60a860',
-  communication: '#6088d0',
-  entertainment: '#d06060',
-  browsing: '#d0a840',
-  break: '#888888',
-  idle: '#444466',
-  other: '#a060b0',
-};
-
-const META_LABELS: Record<string, string> = {
-  focus: 'Focus',
-  communication: 'Communication',
-  entertainment: 'Entertainment',
-  browsing: 'Browsing',
-  break: 'Break',
-  idle: 'Idle',
-  other: 'Other',
-};
 
 function formatDuration(sec: number): string {
   if (sec < 60) return `${sec}s`;

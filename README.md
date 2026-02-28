@@ -24,14 +24,8 @@ Two core values:
 ### AI Analysis
 
 - **Frame analysis** — Each tick sends camera image + screen capture + audio + foreground window info to LLM (Gemini or Claude). Returns structured JSON with activity category and natural language description.
-- **Activity classification** — Auto-categorizes into 16 canonical activities in Japanese: プログラミング, YouTube視聴, ブラウジング, チャット, SNS, ゲーム, 休憩, 離席, ドキュメント閲覧, コンテンツ制作, 会話, 読書, 音楽, 食事, 睡眠, 不在. Fuzzy normalization prevents LLM drift.
-- **Meta-categories** — Activities are grouped for productivity scoring:
-  - **Focus**: プログラミング, ドキュメント閲覧, コンテンツ制作, 読書
-  - **Communication**: チャット, 会話
-  - **Entertainment**: YouTube視聴, ゲーム, SNS, 音楽
-  - **Browsing**: ブラウジング
-  - **Break**: 休憩, 離席, 食事
-  - **Idle**: 睡眠, 不在
+- **Activity classification** — LLM freely generates activity category names. Existing categories are shown as examples for consistency, and new categories are accepted and registered automatically. Fuzzy matching (LCS similarity ≥ 0.7) normalizes variants to existing categories. All activity → meta-category mappings are stored in the `activity_mappings` DB table.
+- **Meta-categories** — Activities are dynamically mapped to 6 meta-categories for productivity scoring: **focus**, **communication**, **entertainment**, **browsing**, **break**, **idle**. The LLM outputs the meta-category alongside each activity. The mapping is stored in DB and served to the frontend via API.
 - **Multi-scale summaries** — Hierarchical generation: 10m (from raw frames) → 30m → 1h → 6h → 12h → 24h (includes keyframe images + transcriptions + improvement suggestions). Each scale builds from the one below.
 - **Daily reports** — Auto-generated on day change. Includes activity breakdown, timeline narrative, focus percentage (focus frames / active frames), and event list. Delivered via webhook.
 - **Context awareness** — User profile (`data/context.md`) and recent 5-frame history included in every LLM prompt for continuity.
@@ -95,7 +89,7 @@ daemon/                  # Python package
   ├─ daemon.py           # Main observer loop
   ├─ config.py           # TOML config loading
   ├─ analyzer.py         # Frame analysis + summary generation
-  ├─ activity.py         # Canonical activity categories + fuzzy matching
+  ├─ activity.py         # ActivityManager: DB-backed normalization + meta-category mapping
   ├─ report.py           # Daily report generation
   ├─ notify.py           # Discord / LINE webhook notifications
   ├─ live.py             # MJPEG streaming server
@@ -134,7 +128,7 @@ web/                     # Node.js web application
       ├─ App.tsx         # Main SPA orchestrator
       ├─ components/     # React components
       ├─ hooks/          # Data fetching with 30s polling
-      └─ lib/            # API client, types, utilities
+      └─ lib/            # API client, types, activity module, utilities
 
 data/                    # Runtime data (gitignored)
   ├─ frames/             # Camera JPEGs (YYYY-MM-DD/*.jpg)
@@ -290,6 +284,7 @@ enabled = false
 | `GET /api/reports?date=...` | Get daily report |
 | `GET /api/reports` | List recent reports |
 | `GET /api/activities` | List activity categories with meta-categories |
+| `GET /api/activities/mappings` | Activity → meta-category mapping table |
 | `GET /api/search?q=...&from=...&to=...` | Full-text search (frames + summaries) |
 | `GET /api/live/stream` | MJPEG stream proxy |
 | `GET /api/live/frame` | Single JPEG snapshot |
@@ -308,6 +303,9 @@ Multi-scale summaries (10m to 24h) with timestamp, scale, content, and frame cou
 
 ### events
 Detected events: scene changes, motion spikes, presence state changes. Linked to source frame.
+
+### activity_mappings
+Dynamic activity → meta-category mapping. Primary key is activity name, with meta_category, first_seen timestamp, and frame_count. Seeded from existing frame data on first migration. Updated automatically as the LLM generates new activities.
 
 ### reports
 Daily auto-generated reports with content, frame count, and focus percentage.
