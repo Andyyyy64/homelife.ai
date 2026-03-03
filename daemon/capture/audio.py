@@ -131,8 +131,8 @@ class AudioCapture:
     def __init__(self, data_dir: Path, device: str = "", sample_rate: int = 44100):
         self._data_dir = data_dir
         self._sample_rate = sample_rate
-        # device is only used for ALSA; sounddevice auto-selects the default mic on Mac
-        self._alsa_device = device or (_detect_alsa_device() if sys.platform != "darwin" else "")
+        # device is only used for ALSA; sounddevice auto-selects the default mic on Mac/Windows
+        self._alsa_device = device or (_detect_alsa_device() if sys.platform == "linux" else "")
 
     def capture(self, duration_sec: int = 30, timestamp: datetime | None = None) -> str | None:
         """Record audio and save as WAV. Returns relative path or None."""
@@ -143,8 +143,8 @@ class AudioCapture:
         filename = timestamp.strftime("%H-%M-%S") + ".wav"
         filepath = date_dir / filename
 
-        if sys.platform == "darwin":
-            ok = self._capture_mac(filepath, duration_sec)
+        if sys.platform in ("darwin", "win32"):
+            ok = self._capture_sounddevice(filepath, duration_sec)
         else:
             ok = self._capture_alsa(filepath, duration_sec)
 
@@ -161,8 +161,8 @@ class AudioCapture:
         log.debug("Audio captured: %s", rel_path)
         return rel_path
 
-    def _capture_mac(self, filepath: Path, duration_sec: int) -> bool:
-        """Record using sounddevice (CoreAudio) — no external binaries needed."""
+    def _capture_sounddevice(self, filepath: Path, duration_sec: int) -> bool:
+        """Record using sounddevice (CoreAudio on Mac, WASAPI on Windows)."""
         try:
             import sounddevice as sd
             import numpy as np
@@ -190,7 +190,7 @@ class AudioCapture:
                 return False
             return True
         except Exception:
-            log.exception("Mac audio capture error")
+            log.exception("Audio capture error (sounddevice)")
             return False
 
     def _capture_alsa(self, filepath: Path, duration_sec: int) -> bool:

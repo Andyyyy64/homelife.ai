@@ -42,6 +42,8 @@ class ScreenCapture:
 
         if sys.platform == "darwin":
             return self._capture_mac(filepath)
+        elif sys.platform == "win32":
+            return self._capture_windows(filepath)
         else:
             return self._capture_wsl(filepath)
 
@@ -67,6 +69,37 @@ class ScreenCapture:
             return None
         except FileNotFoundError:
             log.warning("screencapture not found (not running on macOS?)")
+            return None
+        except Exception:
+            log.exception("Screen capture error")
+            return None
+
+    def _capture_windows(self, filepath: Path) -> str | None:
+        """Capture screen on native Windows using PowerShell directly."""
+        script = _PS_SCRIPT.format(path=str(filepath))
+        try:
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", script],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+            if result.returncode != 0:
+                log.warning("Screen capture failed: %s", result.stderr[:200])
+                return None
+            if not filepath.exists():
+                log.warning("Screenshot file not created: %s", filepath)
+                return None
+            rel_path = str(filepath.relative_to(self._data_dir))
+            log.debug("Screen captured (windows): %s", rel_path)
+            return rel_path
+        except subprocess.TimeoutExpired:
+            log.warning("Screen capture timed out")
+            return None
+        except FileNotFoundError:
+            log.warning("powershell not found")
             return None
         except Exception:
             log.exception("Screen capture error")

@@ -111,8 +111,10 @@ class WindowMonitor:
             try:
                 if sys.platform == "darwin":
                     self._run_monitor_mac()
+                elif sys.platform == "win32":
+                    self._run_monitor_powershell("powershell")
                 else:
-                    self._run_monitor_wsl()
+                    self._run_monitor_powershell("powershell.exe")
             except FileNotFoundError as e:
                 log.warning("Window monitoring command not found (%s), monitoring disabled", e)
                 return
@@ -163,11 +165,14 @@ class WindowMonitor:
         finally:
             conn.close()
 
-    def _run_monitor_wsl(self):
-        """Persistent PowerShell process for WSL2/Windows window monitoring."""
+    def _run_monitor_powershell(self, binary: str):
+        """Persistent PowerShell process for Windows window monitoring.
+
+        binary: 'powershell' on native Windows, 'powershell.exe' from WSL2.
+        """
         script = _PS_MONITOR.replace("POLL_MS_PLACEHOLDER", str(self._poll_ms))
         self._process = subprocess.Popen(
-            ["powershell.exe", "-NoProfile", "-Command", script],
+            [binary, "-NoProfile", "-Command", script],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             bufsize=1,

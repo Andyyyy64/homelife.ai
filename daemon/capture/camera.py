@@ -20,8 +20,11 @@ class Camera:
 
     def open(self) -> bool:
         if sys.platform == "darwin":
-            # macOS: AVFoundation backend (built-in camera works out of the box)
+            # macOS: AVFoundation backend
             self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_AVFOUNDATION)
+        elif sys.platform == "win32":
+            # Windows: DirectShow backend
+            self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_DSHOW)
         else:
             # Linux/WSL2: V4L2 + MJPEG (required for USB cameras via usbipd)
             self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_V4L2)
@@ -30,8 +33,8 @@ class Camera:
             log.error("Failed to open camera device %d", self._config.device)
             return False
 
-        if sys.platform != "darwin":
-            # MJPEG format is required for WSL2 + USB cameras; AVFoundation handles this internally
+        if sys.platform == "linux":
+            # MJPEG format required for WSL2 + USB cameras
             self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
 
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
