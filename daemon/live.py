@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -58,7 +59,19 @@ class LiveServer:
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                if self.path == "/stream":
+                if self.path == "/health":
+                    with server._lock:
+                        has_frame = server._latest_jpeg is not None
+                    body = json.dumps({"live": has_frame}).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+                elif self.path == "/stream":
                     use_pose = False
                 elif self.path == "/stream/pose":
                     use_pose = True

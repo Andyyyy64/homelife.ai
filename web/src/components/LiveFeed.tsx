@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 const BASE_URL = `${window.location.protocol}//${window.location.hostname}:3002`;
 const STREAM_URL = `${BASE_URL}/stream`;
 const STREAM_POSE_URL = `${BASE_URL}/stream/pose`;
+const HEALTH_URL = `${BASE_URL}/health`;
 
 export function LiveFeed() {
   const [live, setLive] = useState(false);
@@ -10,6 +11,28 @@ export function LiveFeed() {
   const [showPose, setShowPose] = useState(false);
 
   const handleClose = useCallback(() => setExpanded(false), []);
+
+  // Poll /health every 3s for reliable LIVE/OFFLINE detection.
+  // img.onLoad is unreliable for MJPEG: the server may accept the connection
+  // but not send frames (e.g. camera not open), leaving the img in limbo.
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(2000) });
+        if (res.ok) {
+          const data = await res.json();
+          setLive(!!data.live);
+        } else {
+          setLive(false);
+        }
+      } catch {
+        setLive(false);
+      }
+    };
+    check();
+    const id = setInterval(check, 3000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!expanded) return;
@@ -34,8 +57,6 @@ export function LiveFeed() {
           alt="Live feed"
           className="live-image"
           style={{ display: live ? 'block' : 'none' }}
-          onLoad={() => setLive(true)}
-          onError={() => setLive(false)}
         />
       </div>
       {expanded && (
