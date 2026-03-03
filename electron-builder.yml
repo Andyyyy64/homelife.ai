@@ -16,14 +16,21 @@ files:
 
 mac:
   category: public.app-category.productivity
+  icon: web/electron/build/icon.png
   target:
     - target: dmg
       arch: [x64, arm64]
 
 win:
+  icon: web/electron/build/icon.ico
   target:
     - target: nsis
       arch: [x64]
+
+linux:
+  icon: web/electron/build/icon.png
+  target:
+    - target: AppImage
 
 nsis:
   oneClick: false
