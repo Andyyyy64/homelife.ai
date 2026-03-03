@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from typing import TYPE_CHECKING
 
 import cv2
@@ -18,12 +19,21 @@ class Camera:
         self._cap: cv2.VideoCapture | None = None
 
     def open(self) -> bool:
-        self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_V4L2)
+        if sys.platform == "darwin":
+            # macOS: AVFoundation backend (built-in camera works out of the box)
+            self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_AVFOUNDATION)
+        else:
+            # Linux/WSL2: V4L2 + MJPEG (required for USB cameras via usbipd)
+            self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_V4L2)
+
         if not self._cap.isOpened():
             log.error("Failed to open camera device %d", self._config.device)
             return False
-        # Use MJPEG format (required for WSL2 + USB cameras like C270)
-        self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+
+        if sys.platform != "darwin":
+            # MJPEG format is required for WSL2 + USB cameras; AVFoundation handles this internally
+            self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._config.height)
         self._cap.set(cv2.CAP_PROP_FPS, 30)

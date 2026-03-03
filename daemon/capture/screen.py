@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -31,15 +32,49 @@ class ScreenCapture:
         self._data_dir = data_dir
 
     def capture(self, timestamp: datetime | None = None) -> str | None:
-        """Capture the Windows screen and save as PNG. Returns relative path or None."""
+        """Capture the screen and save as PNG. Returns relative path or None."""
         timestamp = timestamp or datetime.now()
         date_dir = self._data_dir / "screens" / timestamp.strftime("%Y-%m-%d")
         date_dir.mkdir(parents=True, exist_ok=True)
 
         filename = timestamp.strftime("%H-%M-%S") + ".png"
         filepath = date_dir / filename
-        unc_path = _wsl_to_unc(str(filepath.resolve()))
 
+        if sys.platform == "darwin":
+            return self._capture_mac(filepath)
+        else:
+            return self._capture_wsl(filepath)
+
+    def _capture_mac(self, filepath: Path) -> str | None:
+        """Capture screen using macOS built-in screencapture command."""
+        try:
+            result = subprocess.run(
+                ["screencapture", "-x", "-t", "png", str(filepath)],
+                capture_output=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                log.warning("screencapture failed: %s", result.stderr[:200])
+                return None
+            if not filepath.exists():
+                log.warning("Screenshot file not created: %s", filepath)
+                return None
+            rel_path = str(filepath.relative_to(self._data_dir))
+            log.debug("Screen captured (mac): %s", rel_path)
+            return rel_path
+        except subprocess.TimeoutExpired:
+            log.warning("screencapture timed out")
+            return None
+        except FileNotFoundError:
+            log.warning("screencapture not found (not running on macOS?)")
+            return None
+        except Exception:
+            log.exception("Screen capture error")
+            return None
+
+    def _capture_wsl(self, filepath: Path) -> str | None:
+        """Capture Windows screen from WSL2 using PowerShell."""
+        unc_path = _wsl_to_unc(str(filepath.resolve()))
         script = _PS_SCRIPT.format(path=unc_path)
         try:
             result = subprocess.run(
@@ -57,7 +92,7 @@ class ScreenCapture:
                 log.warning("Screenshot file not created: %s", filepath)
                 return None
             rel_path = str(filepath.relative_to(self._data_dir))
-            log.debug("Screen captured: %s", rel_path)
+            log.debug("Screen captured (wsl): %s", rel_path)
             return rel_path
         except subprocess.TimeoutExpired:
             log.warning("Screen capture timed out")

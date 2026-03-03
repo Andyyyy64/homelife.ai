@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
@@ -48,12 +49,30 @@ while ($true) {
 }
 """
 
+# AppleScript to get frontmost app name and window title
+_OSASCRIPT_GET_WINDOW = """
+tell application "System Events"
+    try
+        set frontApp to first application process whose frontmost is true
+        set appName to name of frontApp
+        try
+            set winTitle to name of front window of frontApp
+        on error
+            set winTitle to ""
+        end try
+        return appName & "|" & winTitle
+    on error
+        return "|"
+    end try
+end tell
+"""
+
 
 class WindowMonitor:
-    """Monitor foreground window changes using a persistent PowerShell process.
+    """Monitor foreground window changes.
 
-    Detects focus changes in near-realtime (default 500ms polling) and records
-    each change to the window_events table for precise app usage tracking.
+    Uses osascript on macOS, PowerShell + Win32 on WSL2/Windows.
+    Records each focus change to window_events table for precise app usage tracking.
     """
 
     def __init__(self, db_path: Path, poll_ms: int = 500):
@@ -71,7 +90,7 @@ class WindowMonitor:
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True, name="window-monitor")
         self._thread.start()
-        log.info("Window monitor started (poll=%dms)", self._poll_ms)
+        log.info("Window monitor started (poll=%dms, platform=%s)", self._poll_ms, sys.platform)
 
     def stop(self):
         """Stop monitoring."""
@@ -90,15 +109,62 @@ class WindowMonitor:
     def _run(self):
         while self._running:
             try:
-                self._run_monitor()
-            except FileNotFoundError:
-                log.warning("powershell.exe not found, window monitoring disabled")
+                if sys.platform == "darwin":
+                    self._run_monitor_mac()
+                else:
+                    self._run_monitor_wsl()
+            except FileNotFoundError as e:
+                log.warning("Window monitoring command not found (%s), monitoring disabled", e)
                 return
             except Exception:
                 log.exception("Window monitor error, restarting in 5s...")
                 time.sleep(5)
 
-    def _run_monitor(self):
+    def _run_monitor_mac(self):
+        """Poll frontmost app via osascript (macOS)."""
+        conn = sqlite3.connect(str(self._db_path), timeout=10)
+        conn.execute("PRAGMA journal_mode=WAL")
+        try:
+            while self._running:
+                try:
+                    result = subprocess.run(
+                        ["osascript", "-e", _OSASCRIPT_GET_WINDOW],
+                        capture_output=True,
+                        text=True,
+                        timeout=3,
+                    )
+                    output = result.stdout.strip()
+                    if "|" in output:
+                        proc, _, title = output.partition("|")
+                    else:
+                        proc, title = output, ""
+                    proc = proc.strip()
+                    title = title.strip()
+
+                    with self._lock:
+                        changed = proc != self._current_proc or title != self._current_title
+                        self._current_proc = proc
+                        self._current_title = title
+
+                    if changed and proc:
+                        now = datetime.now()
+                        conn.execute(
+                            "INSERT INTO window_events (timestamp, process_name, window_title) VALUES (?, ?, ?)",
+                            (now.isoformat(), proc, title),
+                        )
+                        conn.commit()
+                        log.info("Window: %s | %s", proc, title[:60])
+                except subprocess.TimeoutExpired:
+                    log.debug("osascript timed out")
+                except Exception:
+                    log.debug("osascript error", exc_info=True)
+
+                time.sleep(self._poll_ms / 1000)
+        finally:
+            conn.close()
+
+    def _run_monitor_wsl(self):
+        """Persistent PowerShell process for WSL2/Windows window monitoring."""
         script = _PS_MONITOR.replace("POLL_MS_PLACEHOLDER", str(self._poll_ms))
         self._process = subprocess.Popen(
             ["powershell.exe", "-NoProfile", "-Command", script],

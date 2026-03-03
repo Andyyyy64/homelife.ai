@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import grp
 import logging
 import os
 import re
 import shlex
 import struct
 import subprocess
+import sys
 import wave
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +14,7 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 
-def _detect_device() -> str:
+def _detect_alsa_device() -> str:
     """Auto-detect the best ALSA capture device, preferring non-webcam mics."""
     try:
         result = subprocess.run(
@@ -123,12 +123,16 @@ def _trim_silence(filepath: Path, threshold: int = 500, min_voice_sec: float = 0
 
 
 class AudioCapture:
-    """Capture audio using arecord (ALSA) for a given duration."""
+    """Capture audio for a given duration.
+
+    Uses sounddevice (CoreAudio) on macOS, arecord (ALSA) on Linux/WSL2.
+    """
 
     def __init__(self, data_dir: Path, device: str = "", sample_rate: int = 44100):
         self._data_dir = data_dir
-        self._device = device or _detect_device()
         self._sample_rate = sample_rate
+        # device is only used for ALSA; sounddevice auto-selects the default mic on Mac
+        self._alsa_device = device or (_detect_alsa_device() if sys.platform != "darwin" else "")
 
     def capture(self, duration_sec: int = 30, timestamp: datetime | None = None) -> str | None:
         """Record audio and save as WAV. Returns relative path or None."""
@@ -139,10 +143,63 @@ class AudioCapture:
         filename = timestamp.strftime("%H-%M-%S") + ".wav"
         filepath = date_dir / filename
 
+        if sys.platform == "darwin":
+            ok = self._capture_mac(filepath, duration_sec)
+        else:
+            ok = self._capture_alsa(filepath, duration_sec)
+
+        if not ok:
+            return None
+
+        has_voice = _trim_silence(filepath)
+        if not has_voice:
+            log.debug("No voice detected in %s, removing", filepath)
+            filepath.unlink(missing_ok=True)
+            return None
+
+        rel_path = str(filepath.relative_to(self._data_dir))
+        log.debug("Audio captured: %s", rel_path)
+        return rel_path
+
+    def _capture_mac(self, filepath: Path, duration_sec: int) -> bool:
+        """Record using sounddevice (CoreAudio) — no external binaries needed."""
         try:
+            import sounddevice as sd
+            import numpy as np
+        except ImportError:
+            log.warning("sounddevice not installed. Run: pip install sounddevice")
+            return False
+
+        try:
+            recording = sd.rec(
+                int(duration_sec * self._sample_rate),
+                samplerate=self._sample_rate,
+                channels=1,
+                dtype="int16",
+            )
+            sd.wait()
+
+            with wave.open(str(filepath), "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)  # 16-bit
+                wf.setframerate(self._sample_rate)
+                wf.writeframes(recording.tobytes())
+
+            if not filepath.exists() or filepath.stat().st_size < 100:
+                log.warning("Audio file too small or missing: %s", filepath)
+                return False
+            return True
+        except Exception:
+            log.exception("Mac audio capture error")
+            return False
+
+    def _capture_alsa(self, filepath: Path, duration_sec: int) -> bool:
+        """Record using arecord (ALSA) for Linux/WSL2."""
+        try:
+            import grp
             cmd = [
                 "arecord",
-                "-D", self._device,
+                "-D", self._alsa_device,
                 "-f", "S16_LE",
                 "-r", str(self._sample_rate),
                 "-c", "1",
@@ -161,34 +218,25 @@ class AudioCapture:
             )
             if result.returncode != 0:
                 log.warning("arecord failed: %s", result.stderr[:200])
-                return None
+                return False
             if not filepath.exists() or filepath.stat().st_size < 100:
                 log.warning("Audio file too small or missing: %s", filepath)
-                return None
-
-            # Trim silence — skip transcription if no voice detected
-            has_voice = _trim_silence(filepath)
-            if not has_voice:
-                log.debug("No voice detected in %s, removing", filepath)
-                filepath.unlink(missing_ok=True)
-                return None
-
-            rel_path = str(filepath.relative_to(self._data_dir))
-            log.debug("Audio captured: %s", rel_path)
-            return rel_path
+                return False
+            return True
         except subprocess.TimeoutExpired:
             log.warning("Audio capture timed out")
-            return None
+            return False
         except FileNotFoundError:
             log.warning("arecord not found (install alsa-utils)")
-            return None
+            return False
         except Exception:
             log.exception("Audio capture error")
-            return None
+            return False
 
     @staticmethod
     def _in_audio_group() -> bool:
         try:
+            import grp
             audio_gid = grp.getgrnam("audio").gr_gid
             return audio_gid in os.getgroups()
         except KeyError:
