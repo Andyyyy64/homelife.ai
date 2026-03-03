@@ -6,8 +6,9 @@
   --text-primary: #e8e8e8;
   --text-secondary: #888;
   --text-muted: #555;
-  --accent: #e07040;
-  --accent-dim: #a04828;
+  --accent: #48b0a0;
+  --accent-rgb: 72, 176, 160;
+  --accent-dim: #2f7d72;
   --border: #282828;
   --border-light: #333;
 
@@ -85,9 +86,9 @@ pre {
   display: flex;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-md);
-  background: #a0400820;
-  border-bottom: 1px solid #a04008;
-  color: #e8a060;
+  background: rgba(var(--accent-rgb), 0.12);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.45);
+  color: #8fd4ca;
   font-size: 0.8rem;
   font-family: var(--font-mono);
 }
@@ -408,11 +409,11 @@ pre {
 
 .timeline-dot:hover {
   transform: scale(1.4);
-  box-shadow: 0 0 8px rgba(224, 112, 64, 0.4);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 .timeline-dot.selected {
-  box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(224, 112, 64, 0.5);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(var(--accent-rgb), 0.5);
   transform: scale(1.3);
 }
 
