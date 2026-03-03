@@ -47,13 +47,28 @@ def start(ctx, background: bool):
     config: Config = ctx.obj["config"]
 
     if config.pid_file.exists():
-        pid = config.pid_file.read_text().strip()
+        pid_str = config.pid_file.read_text().strip()
         try:
-            os.kill(int(pid), 0)
-            console.print(f"[yellow]Daemon already running (PID {pid})[/yellow]")
-            return
+            pid = int(pid_str)
+            os.kill(pid, 0)  # raises OSError if process is gone
+            # On Linux, check if the process is in stopped (T) state — if so, kill it
+            stopped = False
+            status_path = Path(f"/proc/{pid}/status")
+            if status_path.exists():
+                for line in status_path.read_text().splitlines():
+                    if line.startswith("State:") and "\tT" in line:
+                        stopped = True
+                        break
+            if stopped:
+                os.kill(pid, signal.SIGKILL)
+                config.pid_file.unlink()
+                console.print(f"[yellow]Killed stopped daemon (PID {pid}), starting fresh...[/yellow]")
+            else:
+                console.print(f"[yellow]Daemon already running (PID {pid})[/yellow]")
+                return
         except (OSError, ValueError):
-            config.pid_file.unlink()
+            if config.pid_file.exists():
+                config.pid_file.unlink()
 
     if background:
         proc = subprocess.Popen(
