@@ -34,8 +34,8 @@ class GeminiProvider(LLMProvider):
                 if part.text:
                     text_parts.append(part.text)
             return "".join(text_parts).strip()
-        except (IndexError, AttributeError):
-            # Fallback to resp.text if structure is unexpected
+        except (IndexError, AttributeError, TypeError):
+            # Fallback to resp.text if structure is unexpected (e.g. parts=None)
             return (resp.text or "").strip()
 
     def _get_client(self):
