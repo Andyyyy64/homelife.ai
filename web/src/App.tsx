@@ -5,6 +5,7 @@ import { SearchPanel } from './components/SearchPanel';
 import { MemoPanel } from './components/MemoPanel';
 import { ChatModal } from './components/ChatPanel';
 import { Dashboard } from './components/Dashboard';
+import { Settings } from './components/Settings';
 import { Timeline } from './components/Timeline';
 import { DetailPanel } from './components/DetailPanel';
 import { ActivityHeatmap } from './components/ActivityHeatmap';
@@ -35,6 +36,7 @@ export default function App() {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [highlightRange, setHighlightRange] = useState<SummaryTimeRange | null>(null);
   const [mobilePanel, setMobilePanel] = useState<'timeline' | 'left' | 'detail'>('timeline');
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -223,6 +225,14 @@ export default function App() {
       {stats && <ActivityHeatmap activity={stats.activity} />}
       {showDashboard && <Dashboard date={date} onClose={() => setShowDashboard(false)} />}
       {showChat && <ChatModal date={date} onClose={() => setShowChat(false)} />}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      <button
+        className="settings-gear-btn"
+        onClick={() => setShowSettings(true)}
+        title="Settings"
+      >
+        ⚙
+      </button>
     </div>
   );
 }

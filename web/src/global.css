@@ -1402,6 +1402,288 @@ pre {
   }
 }
 
+/* ── Settings gear button ── */
+
+.settings-gear-btn {
+  position: fixed;
+  bottom: 48px;
+  left: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.settings-gear-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-surface);
+}
+
+/* ── Settings modal ── */
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.settings-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.settings-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  flex: 1;
+}
+
+.settings-close {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.settings-close:hover { border-color: var(--accent); }
+
+.settings-loading {
+  padding: var(--space-xl);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.settings-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  margin: 0 0 var(--space-xs);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-field label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.settings-field input,
+.settings-field select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  padding: 5px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.settings-field input:focus,
+.settings-field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.settings-field select {
+  cursor: pointer;
+}
+
+.settings-field--toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings-field--toggle label {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.settings-toggle {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  min-width: 44px;
+}
+.settings-toggle.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+}
+
+.settings-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.settings-field-row input {
+  flex: 1;
+}
+.settings-hint-inline {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.settings-secret-row {
+  display: flex;
+  gap: var(--space-xs);
+}
+.settings-secret-row input {
+  flex: 1;
+}
+.settings-eye {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 8px;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.settings-eye:hover { border-color: var(--accent); }
+
+.settings-hint {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+.settings-hint-block {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: var(--space-xs) 0 0;
+}
+.settings-hint-block code {
+  background: var(--bg-elevated);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.settings-error {
+  font-size: 12px;
+  color: var(--color-error, #f87171);
+  flex: 1;
+}
+.settings-saved {
+  font-size: 12px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  flex: 1;
+}
+
+.settings-footer-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.settings-cancel-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.settings-cancel-btn:hover { border-color: var(--accent); }
+
+.settings-save-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  padding: var(--space-xs) var(--space-lg);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.settings-save-btn:hover { opacity: 0.85; }
+.settings-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Responsive: Small phone (< 480px) ── */
 
 @media (max-width: 479px) {
