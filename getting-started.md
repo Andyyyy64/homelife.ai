@@ -2,10 +2,69 @@
 
 **English** | [日本語](getting-started.ja.md)
 
+- [Windows (Native)](#windows-native)
 - [Windows (WSL2)](#windows-wsl2)
 - [Mac](#mac)
 - [Common Configuration](#common-configuration)
 - [Running](#running)
+
+---
+
+## Windows (Native)
+
+Runs directly on Windows — no WSL2 required. Camera uses DirectShow, audio uses WASAPI via sounddevice, screen capture and window tracking use PowerShell. The Electron desktop app runs as a native Windows process.
+
+### 1. Python 3.12+
+
+Download and install from [python.org](https://www.python.org/downloads/) or via winget:
+
+```powershell
+winget install Python.Python.3.12
+```
+
+### 2. uv (Python package manager)
+
+```powershell
+winget install astral-sh.uv
+```
+
+Or with PowerShell:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 3. Node.js 22+
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+```
+
+### 4. Repository setup
+
+```powershell
+git clone <repo-url> homelife.ai
+cd homelife.ai
+
+# Python dependencies (includes sounddevice for WASAPI audio)
+uv sync
+
+# Web UI
+cd web
+npm install
+cd ..
+```
+
+### 5. Windows Privacy Permissions
+
+Go to **Settings → Privacy & Security** and allow the following for your terminal app (PowerShell, Windows Terminal, etc.):
+
+| Permission | Used for |
+|---|---|
+| Camera | Built-in / USB camera capture |
+| Microphone | Built-in / USB microphone recording |
+
+> Screen capture and window tracking are done through PowerShell — no additional permissions required.
 
 ---
 
@@ -210,18 +269,27 @@ EOF
 
 ## Running
 
+### Desktop app (recommended)
+
 ```bash
-# Start both services (daemon + web UI)
-./start.sh
+# From the web/ directory — starts daemon, web server, and Electron window
+cd web && npm run electron:start
 ```
 
-Or separately:
+On Windows (PowerShell):
+
+```powershell
+cd web
+npm run electron:start
+```
+
+The app manages the daemon and web server automatically. It minimizes to the system tray when you close the window.
+
+### CLI / browser mode
 
 ```bash
-life start          # Daemon (foreground)
-life start -d       # Daemon (background)
-cd web && npm run dev    # Web UI (dev mode)
-cd web && npm start      # Web UI (production)
+life start -d       # Start daemon in background
+cd web && npm start # Start web server
 ```
 
 - Web UI: http://localhost:3001
