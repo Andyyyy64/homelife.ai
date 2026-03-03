@@ -1,18 +1,18 @@
 # homelife.ai
 
-A personal AI observer that automatically records daily life and enables reflection and pattern discovery.
+A personal AI system for monitoring, managing, and analyzing your daily life.
 
 ## Project Direction
 
-Two core values:
+Three pillars:
 
-1. **Externalized memory** — Answer "what was I doing then?" Searchable, auto-generated diary.
-2. **Productivity visibility** — Show "how focused was I?" and "where did my time go?" in numbers.
+1. **Monitoring** — Continuous, automatic recording (camera, screen, audio, app focus). No manual input.
+2. **Management** — Externalized memory. Instantly answer "what was I doing then?" via search and timeline.
+3. **Analysis** — Concrete productivity metrics. Focus scores, activity breakdowns, long-term patterns.
 
 Improvement priorities:
 1. Improved activity classification accuracy
-2. Mobile support / notification integration
-3. Long-term trend analysis (weekly/monthly patterns)
+2. Long-term trend analysis (weekly/monthly patterns)
 
 ## Architecture
 

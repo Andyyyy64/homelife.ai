@@ -4,12 +4,13 @@ A personal AI observer that automatically records your daily life and enables re
 
 ## Vision
 
-**"Record your life, reflect on it, and see the patterns."**
+**"Monitor, manage, and analyze your life."**
 
-Two core values:
+Three pillars:
 
-1. **Externalized memory** — Instantly answer "what was I doing then?" Your day is recorded automatically, no journaling required.
-2. **Productivity visibility** — See "how focused was I today?" and "where did my time go?" in concrete numbers.
+1. **Monitoring** — Continuous, automatic recording of your day. Camera, screen, audio, and app focus — all captured without any manual input.
+2. **Management** — Instantly answer "what was I doing then?" An externalized, searchable memory that replaces journaling.
+3. **Analysis** — See "how focused was I?" and "where did my time go?" in concrete patterns — daily, weekly, and monthly.
 
 ## Features
 
@@ -171,31 +172,44 @@ data/                    # Runtime data (gitignored)
 
 ## Setup
 
+詳細な手順は **[getting-started.md](getting-started.md)** を参照してください。
+
+| プラットフォーム | ガイド |
+|---|---|
+| Windows (WSL2) | [getting-started.md#windows-wsl2](getting-started.md#windows-wsl2) |
+| Mac | [getting-started.md#mac](getting-started.md#mac) |
+
 ### Requirements
 
-- Python 3.12+
-- Node.js 22+
-- WSL2 (uses `powershell.exe` for screen capture and window tracking)
-- Gemini API key or Claude CLI
+| | Windows (WSL2) | Mac |
+|---|---|---|
+| Python | 3.12+ (in WSL2) | 3.12+ |
+| Node.js | 22+ (in WSL2) | 22+ |
+| カメラ | 外付け USB（usbipd でパススルー） | 内蔵カメラ |
+| マイク | 外付け USB（usbipd でパススルー） | 内蔵マイク |
+| スクリーン | PowerShell + Windows Forms | `screencapture`（内蔵） |
+| ウィンドウ監視 | PowerShell + Win32 API | `osascript`（内蔵） |
+| Gemini API キー | 必要 | 必要 |
 
-### Installation
+### Quick Start
 
 ```bash
-# Python
-uv sync  # or pip install -e .
+# 依存関係インストール
+uv sync
+cd web && npm install && cd ..
 
-# Web UI
-cd web && npm install
+# API キー設定
+echo "GEMINI_API_KEY=your-key-here" > .env
+
+# 起動
+./start.sh
 ```
 
 ### Configuration
 
-```bash
-# Set API key in .env
-echo "GEMINI_API_KEY=your-key-here" > .env
+`life.toml` で動作を設定します（全オプションは[下記参照](#configuration-1)）:
 
-# Configure in life.toml
-cat > life.toml << 'EOF'
+```toml
 [llm]
 provider = "gemini"
 gemini_model = "gemini-2.5-flash"
@@ -205,27 +219,18 @@ interval_sec = 30
 
 [presence]
 enabled = true
-
-[notify]
-provider = "discord"
-webhook_url = "https://discord.com/api/webhooks/..."
-enabled = false
-EOF
 ```
 
-Add user context to `data/context.md` so the AI can reference your name, environment, and habits in its analysis.
+`data/context.md` にユーザー情報を書くと、LLM が名前・環境・習慣を踏まえた分析を行います。
 
 ### Running
 
 ```bash
-# Start both services
-./start.sh
+./start.sh          # デーモン + Web UI を同時起動
 
-# Or separately:
-life start       # daemon foreground
-life start -d    # daemon background
-cd web && npm run dev    # web (development)
-cd web && npm start      # web (production)
+life start          # デーモンのみ（フォアグラウンド）
+life start -d       # デーモンのみ（バックグラウンド）
+cd web && npm run dev    # Web UI（開発モード）
 ```
 
 - Web UI: http://localhost:3001
