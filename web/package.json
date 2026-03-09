@@ -13,11 +13,13 @@
     "electron:compile": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=electron/dist/main.cjs --external:electron && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=electron/dist/preload.cjs --external:electron",
     "electron:dev": "npm run electron:compile && concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --dev\"",
     "electron:start": "npm run electron:compile && electron .",
-    "electron:build": "vite build && npm run electron:compile && electron-builder"
+    "electron:build": "vite build && npm run electron:compile && electron-builder",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^1",
     "better-sqlite3": "^11",
+    "electron-updater": "^6.8.3",
     "hono": "^4",
     "i18next": "^25.8.14",
     "i18next-browser-languagedetector": "^8.2.1",
@@ -27,6 +29,8 @@
     "smol-toml": "^1.6.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7",
     "@types/node": "^22",
     "@types/react": "^19",
@@ -36,9 +40,12 @@
     "electron": "^33",
     "electron-builder": "^25",
     "esbuild": "^0.24",
+    "jsdom": "^28.1.0",
     "tsx": "^4",
     "typescript": "^5",
     "vite": "^6",
+    "@vitest/coverage-v8": "^4.0.18",
+    "vitest": "^4.0.18",
     "wait-on": "^8"
   }
 }
