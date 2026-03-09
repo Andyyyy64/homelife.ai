@@ -54,12 +54,13 @@ export function SearchPanel({ onSelectFrame, onDateChange }: Props) {
   const total = frames.length + summaries.length;
 
   return (
-    <div className="search-panel">
+    <div className="search-panel" role="search">
       <div className="search-input-row">
         <input
           type="text"
           className="search-input"
           placeholder={t('search.placeholder')}
+          aria-label={t('search.placeholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}

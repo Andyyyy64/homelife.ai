@@ -30,7 +30,10 @@
   },
   "header": {
     "chat": "Chat",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "export": "Export CSV",
+    "theme_light": "Light",
+    "theme_dark": "Dark"
   },
   "warnings": {
     "noCamera": "Camera not available — running without webcam capture",
@@ -136,6 +139,32 @@
   "liveFeed": {
     "pose": "Pose",
     "togglePose": "Toggle pose skeleton overlay"
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to homelife.ai",
+      "description": "Your personal AI system for monitoring, managing, and analyzing your daily life."
+    },
+    "setup": {
+      "title": "Quick Setup",
+      "description": "Configure your LLM provider and API key to enable AI analysis.",
+      "openSettings": "Open Settings"
+    },
+    "start": {
+      "title": "You're all set!",
+      "description": "Start the daemon to begin capturing. Run the command below or launch via Electron.",
+      "done": "Got it"
+    },
+    "skip": "Skip",
+    "next": "Next",
+    "back": "Back"
+  },
+  "errors": {
+    "fetchFrames": "Failed to load frames",
+    "fetchSummaries": "Failed to load summaries",
+    "fetchEvents": "Failed to load events",
+    "fetchStats": "Failed to load stats",
+    "network": "Network error"
   },
   "activity": {
     "focus": "Focus",

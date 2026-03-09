@@ -68,7 +68,7 @@ export function DetailPanel({ frame }: Props) {
       {frame.path && (
         <DetailSection title={t('detail.camera')}>
           <div className="detail-image-wrap" onClick={() => setModalSrc(`/media/${frame.path}`)}>
-            <img src={`/media/${frame.path}`} alt={t('detail.camera')} className="detail-img" />
+            <img src={`/media/${frame.path}`} alt={t('detail.camera')} className="detail-img" loading="lazy" />
           </div>
         </DetailSection>
       )}
@@ -153,6 +153,7 @@ function ScreenStrip({ screens, onClickImage }: {
           src={`/media/${screens[selected].path}`}
           alt={t('detail.screenLabel', { label: screens[selected].label })}
           className="detail-img"
+          loading="lazy"
         />
       </div>
       {screens.length > 1 && (
@@ -163,7 +164,7 @@ function ScreenStrip({ screens, onClickImage }: {
               className={`screen-thumb ${i === selected ? 'active' : ''}`}
               onClick={() => setSelected(i)}
             >
-              <img src={`/media/${s.path}`} alt={s.label} />
+              <img src={`/media/${s.path}`} alt={s.label} loading="lazy" />
               <span className="screen-thumb-label">{s.label}</span>
             </button>
           ))}

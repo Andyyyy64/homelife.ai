@@ -109,6 +109,9 @@ export function Settings({ onClose }: Props) {
   return (
     <div
       className="settings-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('settings.title')}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="settings-modal">

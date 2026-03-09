@@ -59,7 +59,7 @@ export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading
   const sortedHours = [...hours.entries()].sort((a, b) => a[0] - b[0]);
 
   return (
-    <div className="timeline">
+    <div className="timeline" role="region" aria-label={t('nav.timeline')}>
       {sortedHours.map(([hour, hourFrames]) => (
         <div key={hour} className="timeline-hour">
           <div className="timeline-hour-label">{String(hour).padStart(2, '0')}:00</div>

@@ -42,7 +42,7 @@ export function ChatModal({ date, onClose }: Props) {
     new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="dashboard-overlay" onClick={(e) => {
+    <div className="dashboard-overlay" role="dialog" aria-modal="true" aria-label={t('chat.title', { date })} onClick={(e) => {
       if (e.target === e.currentTarget) onClose();
     }}>
       <div className="chat-modal">

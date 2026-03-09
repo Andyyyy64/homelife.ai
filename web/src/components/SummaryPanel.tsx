@@ -64,7 +64,7 @@ export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Prop
   }
 
   return (
-    <div className="summary-panel">
+    <div className="summary-panel" role="region" aria-label={t('summary.title')}>
       <div className="panel-header">{t('summary.title')}</div>
       {SCALE_ORDER.map((scale) => {
         const items = byScale.get(scale) || [];
@@ -74,6 +74,7 @@ export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Prop
         return (
           <div key={scale} className="summary-scale">
             <button
+              aria-expanded={isExpanded}
               className="summary-scale-header"
               onClick={() => setExpandedScale(isExpanded ? null : scale)}
             >

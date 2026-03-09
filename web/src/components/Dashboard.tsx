@@ -221,7 +221,7 @@ export function Dashboard({ date, onClose }: Props) {
   const focusPct = activeFrames > 0 ? Math.round((focusFrames / activeFrames) * 100) : 0;
 
   return (
-    <div className="dashboard-overlay">
+    <div className="dashboard-overlay" role="dialog" aria-modal="true" aria-label={t('dashboard.title')}>
       <div className="dashboard">
         <div className="dashboard-header">
           <h2 className="dashboard-title">{t('dashboard.title')}</h2>

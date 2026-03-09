@@ -1,19 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Header } from './components/Header';
 import { SummaryPanel } from './components/SummaryPanel';
 import { SearchPanel } from './components/SearchPanel';
 import { MemoPanel } from './components/MemoPanel';
-import { ChatModal } from './components/ChatPanel';
-import { Dashboard } from './components/Dashboard';
-import { Settings } from './components/Settings';
 import { Timeline } from './components/Timeline';
 import { DetailPanel } from './components/DetailPanel';
 import { ActivityHeatmap } from './components/ActivityHeatmap';
+
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
+const ChatModal = lazy(() => import('./components/ChatPanel').then(m => ({ default: m.ChatModal })));
+const Onboarding = lazy(() => import('./components/Onboarding').then(m => ({ default: m.Onboarding })));
 import { useFrames } from './hooks/useFrames';
 import { useSummaries } from './hooks/useSummaries';
 import { useEvents } from './hooks/useEvents';
 import { useDailyMemo } from './hooks/useDailyMemo';
+import { useToast } from './hooks/useToast';
 import { api } from './lib/api';
 import { loadActivityMappings } from './lib/activity';
 import { formatDate, todayStr } from './lib/date';
@@ -30,8 +33,16 @@ function useIsMobile() {
   return isMobile;
 }
 
+function getInitialTheme(): 'light' | 'dark' {
+  const stored = localStorage.getItem('homelife_theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light';
+  return 'dark';
+}
+
 export default function App() {
   const { t } = useTranslation();
+  const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme);
   const [date, setDate] = useState(formatDate(new Date()));
   const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
   const [stats, setStats] = useState<DayStats | null>(null);
@@ -39,10 +50,12 @@ export default function App() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem('homelife_onboarded') !== '1');
   const [highlightRange, setHighlightRange] = useState<SummaryTimeRange | null>(null);
   const [mobilePanel, setMobilePanel] = useState<'timeline' | 'left' | 'detail'>('timeline');
   const [warnings, setWarnings] = useState<string[]>([]);
   const isMobile = useIsMobile();
+  const { addToast } = useToast();
 
   const { frames, loading: framesLoading } = useFrames(date);
   const { summaries } = useSummaries(date);
@@ -50,8 +63,20 @@ export default function App() {
   const memo = useDailyMemo(date);
 
   const fetchStats = useCallback(() => {
-    api.stats.get(date).then(setStats).catch(console.error);
-  }, [date]);
+    api.stats.get(date).then(setStats).catch(() => {
+      addToast(t('errors.fetchStats'), 'error');
+    });
+  }, [date, addToast, t]);
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('homelife_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
 
   useEffect(() => {
     loadActivityMappings().catch(console.error);
@@ -145,7 +170,7 @@ export default function App() {
   return (
     <div className="app">
       {warnings.length > 0 && (
-        <div className="warning-banner">
+        <div className="warning-banner" role="alert" aria-live="polite">
           {warnings.map((w, i) => <span key={i}>{t(w)}</span>)}
         </div>
       )}
@@ -156,9 +181,11 @@ export default function App() {
         frameCount={stats?.frames ?? 0}
         onDashboardClick={() => setShowDashboard(true)}
         onChatClick={() => setShowChat(true)}
+        theme={theme}
+        onThemeToggle={toggleTheme}
       />
       {isMobile && (
-        <div className="mobile-nav">
+        <nav className="mobile-nav" aria-label="Panel navigation">
           <button
             className={`mobile-nav-btn ${mobilePanel === 'left' ? 'active' : ''}`}
             onClick={() => setMobilePanel('left')}
@@ -177,9 +204,9 @@ export default function App() {
           >
             {t('nav.detail')}
           </button>
-        </div>
+        </nav>
       )}
-      <div className="main-layout">
+      <main className="main-layout" role="main">
         {showLeft && (
           <div className={`left-panel ${isMobile ? 'left-panel--mobile' : ''}`}>
             <SearchPanel
@@ -223,15 +250,24 @@ export default function App() {
         {showDetail && (
           <DetailPanel frame={selectedFrame} />
         )}
-      </div>
+      </main>
       {stats && <ActivityHeatmap activity={stats.activity} />}
-      {showDashboard && <Dashboard date={date} onClose={() => setShowDashboard(false)} />}
-      {showChat && <ChatModal date={date} onClose={() => setShowChat(false)} />}
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      <Suspense fallback={null}>
+        {showDashboard && <Dashboard date={date} onClose={() => setShowDashboard(false)} />}
+        {showChat && <ChatModal date={date} onClose={() => setShowChat(false)} />}
+        {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+        {showOnboarding && (
+          <Onboarding
+            onClose={() => setShowOnboarding(false)}
+            onOpenSettings={() => setShowSettings(true)}
+          />
+        )}
+      </Suspense>
       <button
         className="settings-gear-btn"
         onClick={() => setShowSettings(true)}
         title={t('settings.title')}
+        aria-label={t('settings.title')}
       >
         ⚙
       </button>
