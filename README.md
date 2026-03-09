@@ -13,6 +13,96 @@ A personal AI system for monitoring, managing, and analyzing your daily life.
   <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700" />
 </p>
 
+## Quick Start
+
+> **Prerequisites:** Python 3.12+, Node.js 22+, [uv](https://docs.astral.sh/uv/), and a [Gemini API key](https://aistudio.google.com/).
+> Don't have these yet? See the [full setup guide](getting-started.md) for installation instructions.
+
+<details>
+<summary><b>Windows (PowerShell) — 5 min</b></summary>
+
+```powershell
+# 1. Clone and install
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web; npm install; cd ..
+
+# 2. Set your API key
+"GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
+
+# 3. Launch the desktop app
+cd web; npm run electron:start
+```
+
+> **Permissions:** When prompted, allow Camera and Microphone access in **Settings → Privacy & Security**.
+
+</details>
+
+<details>
+<summary><b>macOS (Terminal) — 5 min</b></summary>
+
+```bash
+# 1. Clone and install
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web && npm install && cd ..
+
+# 2. Set your API key
+echo "GEMINI_API_KEY=your-key-here" > .env
+
+# 3. Launch the desktop app
+cd web && npm run electron:start
+```
+
+> **Permissions:** Grant Camera, Microphone, Screen Recording, and Accessibility access for your terminal in **System Settings → Privacy & Security**. See the [macOS permission guide](getting-started.md#5-macos-privacy-permissions) for details.
+
+</details>
+
+<details>
+<summary><b>Linux / WSL2</b></summary>
+
+```bash
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web && npm install && cd ..
+echo "GEMINI_API_KEY=your-key-here" > .env
+
+# Start daemon + web UI
+./start.sh
+# Open http://localhost:3001
+```
+
+For WSL2 camera setup (usbipd), see the [full guide](getting-started.md#windows-wsl2).
+
+</details>
+
+**Verify it's working:**
+
+```bash
+life look      # Capture + analyze a single frame
+life status    # Check daemon is running
+```
+
+Open http://localhost:3001 — you should see the timeline with your first captured frame.
+
+---
+
+## Table of Contents
+
+- [Vision](#vision)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Setup](#setup) — Requirements, Configuration, Docker
+- [CLI Commands](#cli-commands)
+- [Configuration Reference](#configuration)
+- [Web API](#web-api)
+- [Database Schema](#database-schema)
+- [Tech Stack](#tech-stack)
+
 ## Vision
 
 **"Monitor, manage, and analyze your life."**
@@ -120,6 +210,9 @@ daemon/ (Python)         web/ (Node.js/Hono)       frontend (React)
 
 ## Project Structure
 
+<details>
+<summary>Click to expand</summary>
+
 ```
 daemon/                  # Python package
   ├─ cli.py              # CLI entry point (Click)
@@ -181,6 +274,8 @@ data/                    # Runtime data (gitignored)
   └─ life.pid            # Daemon PID file
 ```
 
+</details>
+
 ## Setup
 
 See **[getting-started.md](getting-started.md)** for full platform-specific instructions ([日本語版](getting-started.ja.md)).
@@ -202,81 +297,6 @@ See **[getting-started.md](getting-started.md)** for full platform-specific inst
 | Screen capture | PowerShell + Windows Forms | PowerShell + Windows Forms | `screencapture` (built-in) |
 | Window tracking | PowerShell + Win32 API | PowerShell + Win32 API | `osascript` (built-in) |
 | Gemini API key | Required | Required | Required |
-
-### Quick Start
-
-> **Prerequisites:** Python 3.12+, Node.js 22+, [uv](https://docs.astral.sh/uv/), and a [Gemini API key](https://aistudio.google.com/).
-> Don't have these yet? See the [full setup guide](getting-started.md) for installation instructions.
-
-<details>
-<summary><b>Windows (PowerShell) — 5 min</b></summary>
-
-```powershell
-# 1. Clone and install
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
-uv sync
-cd web; npm install; cd ..
-
-# 2. Set your API key
-"GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
-
-# 3. Launch the desktop app
-cd web; npm run electron:start
-```
-
-> **Permissions:** When prompted, allow Camera and Microphone access in **Settings → Privacy & Security**.
-
-</details>
-
-<details>
-<summary><b>macOS (Terminal) — 5 min</b></summary>
-
-```bash
-# 1. Clone and install
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
-uv sync
-cd web && npm install && cd ..
-
-# 2. Set your API key
-echo "GEMINI_API_KEY=your-key-here" > .env
-
-# 3. Launch the desktop app
-cd web && npm run electron:start
-```
-
-> **Permissions:** Grant Camera, Microphone, Screen Recording, and Accessibility access for your terminal in **System Settings → Privacy & Security**. See the [macOS permission guide](getting-started.md#5-macos-privacy-permissions) for details.
-
-</details>
-
-<details>
-<summary><b>Linux / WSL2</b></summary>
-
-```bash
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
-uv sync
-cd web && npm install && cd ..
-echo "GEMINI_API_KEY=your-key-here" > .env
-
-# Start daemon + web UI
-./start.sh
-# Open http://localhost:3001
-```
-
-For WSL2 camera setup (usbipd), see the [full guide](getting-started.md#windows-wsl2).
-
-</details>
-
-#### Verify it's working
-
-```bash
-life look      # Capture + analyze a single frame
-life status    # Check daemon is running
-```
-
-Open http://localhost:3001 — you should see the timeline with your first captured frame.
 
 ### Configuration
 
@@ -392,11 +412,18 @@ backfill_months = 3              # fetch past N months on first run (0 = skip)
 | `GET /api/activities` | List activity categories with meta-categories |
 | `GET /api/activities/mappings` | Activity → meta-category mapping table |
 | `GET /api/search?q=...&from=...&to=...` | Full-text search (frames + summaries) |
+| `GET /api/export/frames?date=...&format=csv\|json` | Export frames as CSV or JSON |
+| `GET /api/export/summaries?from=...&to=...&format=csv\|json` | Export summaries |
+| `GET /api/export/report?date=...` | Export daily report as JSON |
 | `GET /api/live/stream` | MJPEG stream proxy |
 | `GET /api/live/frame` | Single JPEG snapshot |
+| `GET /health` | Health check |
 | `GET /media/{path}` | Serve image/audio files |
 
 ## Database Schema
+
+<details>
+<summary>Click to expand</summary>
 
 ### frames
 Core capture data: timestamp, camera path, screen path, extra screen paths, audio path, transcription, brightness, motion score, scene type, LLM description, activity category, foreground window.
@@ -424,6 +451,8 @@ Daily user memos: date (primary key), content, updated_at. Editable only for tod
 
 ### FTS indexes
 `frames_fts` (trigram) over description, transcription, activity, foreground_window. `summaries_fts` (trigram) over content.
+
+</details>
 
 ## Tech Stack
 

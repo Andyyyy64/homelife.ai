@@ -13,6 +13,96 @@
   <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700" />
 </p>
 
+## クイックスタート
+
+> **前提条件:** Python 3.12+、Node.js 22+、[uv](https://docs.astral.sh/uv/)、[Gemini APIキー](https://aistudio.google.com/)
+> 未インストールの場合は[セットアップガイド](getting-started.ja.md)を参照してください。
+
+<details>
+<summary><b>Windows（PowerShell）— 5分</b></summary>
+
+```powershell
+# 1. クローン & インストール
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web; npm install; cd ..
+
+# 2. APIキーを設定
+"GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
+
+# 3. デスクトップアプリを起動
+cd web; npm run electron:start
+```
+
+> **権限:** 起動時にカメラ・マイクへのアクセスを求められたら、**設定 → プライバシーとセキュリティ**で許可してください。
+
+</details>
+
+<details>
+<summary><b>macOS（ターミナル）— 5分</b></summary>
+
+```bash
+# 1. クローン & インストール
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web && npm install && cd ..
+
+# 2. APIキーを設定
+echo "GEMINI_API_KEY=your-key-here" > .env
+
+# 3. デスクトップアプリを起動
+cd web && npm run electron:start
+```
+
+> **権限:** ターミナルアプリに対して、**システム設定 → プライバシーとセキュリティ**でカメラ・マイク・画面収録・アクセシビリティを許可してください。詳細は[macOS権限ガイド](getting-started.ja.md#5-macos-のプライバシー権限)を参照。
+
+</details>
+
+<details>
+<summary><b>Linux / WSL2</b></summary>
+
+```bash
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web && npm install && cd ..
+echo "GEMINI_API_KEY=your-key-here" > .env
+
+# デーモン + Web UIを起動
+./start.sh
+# http://localhost:3001 を開く
+```
+
+WSL2でのカメラ設定（usbipd）については[セットアップガイド](getting-started.ja.md#windows-wsl2)を参照。
+
+</details>
+
+**動作確認:**
+
+```bash
+life look      # フレームを1枚撮影して分析
+life status    # デーモンの状態確認
+```
+
+http://localhost:3001 を開くと、最初のフレームがタイムラインに表示されます。
+
+---
+
+## 目次
+
+- [ビジョン](#ビジョン)
+- [機能](#機能)
+- [アーキテクチャ](#アーキテクチャ)
+- [プロジェクト構造](#プロジェクト構造)
+- [セットアップ](#セットアップ) — 必要要件、設定、Docker
+- [CLIコマンド](#cliコマンド)
+- [設定リファレンス](#設定)
+- [Web API](#web-api)
+- [データベーススキーマ](#データベーススキーマ)
+- [技術スタック](#技術スタック)
+
 ## ビジョン
 
 **「人生を監視し、管理し、分析する。」**
@@ -112,6 +202,9 @@ daemon/ (Python)         web/ (Node.js/Hono)       frontend (React)
 
 ## プロジェクト構造
 
+<details>
+<summary>クリックして展開</summary>
+
 ```
 daemon/                  # Pythonパッケージ
   ├─ cli.py              # CLIエントリポイント (Click)
@@ -173,6 +266,8 @@ data/                    # 実行時データ（gitignore済み）
   └─ life.pid            # デーモンPIDファイル
 ```
 
+</details>
+
 ## セットアップ
 
 プラットフォーム別の詳細手順は **[getting-started.ja.md](getting-started.ja.md)** を参照してください。
@@ -194,81 +289,6 @@ data/                    # 実行時データ（gitignore済み）
 | 画面キャプチャ | PowerShell + Windows Forms | PowerShell + Windows Forms | `screencapture`（内蔵） |
 | ウィンドウ監視 | PowerShell + Win32 API | PowerShell + Win32 API | `osascript`（内蔵） |
 | Gemini APIキー | 必要 | 必要 | 必要 |
-
-### クイックスタート
-
-> **前提条件:** Python 3.12+、Node.js 22+、[uv](https://docs.astral.sh/uv/)、[Gemini APIキー](https://aistudio.google.com/)
-> 未インストールの場合は[セットアップガイド](getting-started.ja.md)を参照してください。
-
-<details>
-<summary><b>Windows（PowerShell）— 5分</b></summary>
-
-```powershell
-# 1. クローン & インストール
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
-uv sync
-cd web; npm install; cd ..
-
-# 2. APIキーを設定
-"GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
-
-# 3. デスクトップアプリを起動
-cd web; npm run electron:start
-```
-
-> **権限:** 起動時にカメラ・マイクへのアクセスを求められたら、**設定 → プライバシーとセキュリティ**で許可してください。
-
-</details>
-
-<details>
-<summary><b>macOS（ターミナル）— 5分</b></summary>
-
-```bash
-# 1. クローン & インストール
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
-uv sync
-cd web && npm install && cd ..
-
-# 2. APIキーを設定
-echo "GEMINI_API_KEY=your-key-here" > .env
-
-# 3. デスクトップアプリを起動
-cd web && npm run electron:start
-```
-
-> **権限:** ターミナルアプリに対して、**システム設定 → プライバシーとセキュリティ**でカメラ・マイク・画面収録・アクセシビリティを許可してください。詳細は[macOS権限ガイド](getting-started.ja.md#5-macos-のプライバシー権限)を参照。
-
-</details>
-
-<details>
-<summary><b>Linux / WSL2</b></summary>
-
-```bash
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
-uv sync
-cd web && npm install && cd ..
-echo "GEMINI_API_KEY=your-key-here" > .env
-
-# デーモン + Web UIを起動
-./start.sh
-# http://localhost:3001 を開く
-```
-
-WSL2でのカメラ設定（usbipd）については[セットアップガイド](getting-started.ja.md#windows-wsl2)を参照。
-
-</details>
-
-#### 動作確認
-
-```bash
-life look      # フレームを1枚撮影して分析
-life status    # デーモンの状態確認
-```
-
-http://localhost:3001 を開くと、最初のフレームがタイムラインに表示されます。
 
 ### 設定
 
@@ -385,11 +405,18 @@ backfill_months = 3              # 初回起動時の過去履歴取得月数（
 | `GET /api/activities` | アクティビティカテゴリ一覧（メタカテゴリ付き） |
 | `GET /api/activities/mappings` | アクティビティ → メタカテゴリ マッピングテーブル |
 | `GET /api/search?q=...&from=...&to=...` | 全文検索（フレーム + サマリー） |
+| `GET /api/export/frames?date=...&format=csv\|json` | フレームをCSV/JSONでエクスポート |
+| `GET /api/export/summaries?from=...&to=...&format=csv\|json` | サマリーをエクスポート |
+| `GET /api/export/report?date=...` | 日次レポートをJSONでエクスポート |
 | `GET /api/live/stream` | MJPEGストリームプロキシ |
 | `GET /api/live/frame` | JPEGスナップショット（1枚） |
+| `GET /health` | ヘルスチェック |
 | `GET /media/{path}` | 画像・音声ファイルの配信 |
 
 ## データベーススキーマ
+
+<details>
+<summary>クリックして展開</summary>
 
 ### frames
 コアキャプチャデータ: タイムスタンプ、カメラパス、画面パス、追加画面パス、音声パス、文字起こし、輝度、モーションスコア、シーンタイプ、LLM説明、アクティビティカテゴリ、フォアグラウンドウィンドウ。
@@ -417,6 +444,8 @@ backfill_months = 3              # 初回起動時の過去履歴取得月数（
 
 ### FTSインデックス
 `frames_fts`（トライグラム）: description, transcription, activity, foreground_window。`summaries_fts`（トライグラム）: content。
+
+</details>
 
 ## 技術スタック
 
