@@ -38,6 +38,7 @@ class Frame:
     screen_extra_paths: str = ""  # comma-separated extra screen paths
     foreground_window: str = ""  # "process_name|window_title"
     pose_data: str = ""  # JSON from PoseResult
+    idle_seconds: int = 0  # seconds since last mouse/keyboard input
 
 
 @dataclass

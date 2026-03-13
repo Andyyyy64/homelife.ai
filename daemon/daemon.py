@@ -321,6 +321,7 @@ class Daemon:
         screen_path = self._screen.capture(now) or ""
         proc_name, win_title = self._window.current()
         foreground_window = f"{proc_name}|{win_title}" if proc_name else ""
+        idle_seconds = self._window.idle_seconds()
 
         # Local lightweight analysis (requires camera)
         brightness = 0.0
@@ -344,7 +345,7 @@ class Daemon:
             if self._presence_enabled:
                 has_face = self._presence.detect_face(raw_frame)
                 prev_state = self._presence.state
-                self._presence.update(brightness, motion_score, has_face, now)
+                self._presence.update(brightness, motion_score, has_face, now, idle_seconds)
                 new_state = self._presence.state
 
                 if new_state != prev_state:
@@ -380,6 +381,7 @@ class Daemon:
             screen_extra_paths=",".join(extra_screens) if extra_screens else "",
             foreground_window=foreground_window,
             pose_data=pose_data,
+            idle_seconds=idle_seconds,
         )
         frame_id = self._db.insert_frame(frame)
         frame.id = frame_id
@@ -416,7 +418,7 @@ class Daemon:
             pose_label = pr.posture
 
         log.info(
-            "frame=%d bright=%.0f motion=%.3f scene=%s presence=%s pose=%s audio=%s window=%s",
+            "frame=%d bright=%.0f motion=%.3f scene=%s presence=%s pose=%s audio=%s window=%s idle=%ds",
             self._frame_count,
             brightness,
             motion_score,
@@ -425,6 +427,7 @@ class Daemon:
             pose_label or "n/a",
             "yes" if audio_path else "no",
             proc_name or "n/a",
+            idle_seconds,
         )
 
         # LLM frame analysis (with change-detected extra captures + presence/pose hints)
@@ -436,6 +439,7 @@ class Daemon:
             all_extra_cams,
             has_face=has_face,
             pose_data=pose_data,
+            idle_seconds=idle_seconds,
         )
         if description or activity:
             self._db.update_frame_analysis(frame_id, description, activity)

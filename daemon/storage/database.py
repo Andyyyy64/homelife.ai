@@ -132,6 +132,9 @@ class Database:
         if "pose_data" not in cols:
             self._conn.execute("ALTER TABLE frames ADD COLUMN pose_data TEXT DEFAULT ''")
             self._conn.commit()
+        if "idle_seconds" not in cols:
+            self._conn.execute("ALTER TABLE frames ADD COLUMN idle_seconds INTEGER DEFAULT 0")
+            self._conn.commit()
         # Ensure summaries table exists
         self._conn.executescript(MIGRATE_SUMMARIES)
         # Window events table for precise app usage tracking
@@ -698,8 +701,8 @@ class Database:
         cur = self._conn.execute(
             """INSERT INTO frames (timestamp, path, screen_path, audio_path, transcription,
                brightness, motion_score, scene_type, claude_description, activity,
-               screen_extra_paths, foreground_window, pose_data)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               screen_extra_paths, foreground_window, pose_data, idle_seconds)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 frame.timestamp.isoformat(),
                 frame.path,
@@ -714,6 +717,7 @@ class Database:
                 frame.screen_extra_paths,
                 frame.foreground_window,
                 frame.pose_data,
+                frame.idle_seconds,
             ),
         )
         self._conn.commit()
@@ -936,6 +940,7 @@ class Database:
             screen_extra_paths=row["screen_extra_paths"] or "",
             foreground_window=row["foreground_window"] or "",
             pose_data=row["pose_data"] if "pose_data" in row else "",  # noqa: SIM401 - sqlite3.Row has no .get()
+            idle_seconds=row["idle_seconds"] if "idle_seconds" in row else 0,  # noqa: SIM401
         )
 
     @staticmethod

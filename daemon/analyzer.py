@@ -41,6 +41,7 @@ class FrameAnalyzer:
         extra_cam_paths: list[str] | None = None,
         has_face: bool | None = None,
         pose_data: str = "",
+        idle_seconds: int = 0,
     ) -> tuple[str, str]:
         """Analyze frame and return (description, activity).
 
@@ -228,6 +229,24 @@ class FrameAnalyzer:
                     "ただし画面上でアクティブな操作（コード編集、ブラウジングなど）が確認できる場合は、"
                     "カメラの画角外にいるだけなので、画面の内容に基づいて活動を分類してください。"
                     "画面にも変化がない場合のみ「睡眠」または「不在」と分類してください。"
+                )
+
+        # Keyboard/mouse idle hint
+        if idle_seconds > 0:
+            if idle_seconds >= 300:
+                parts.append(
+                    f"\n【入力検出】マウス/キーボードの最終操作: {idle_seconds}秒前（約{idle_seconds // 60}分間操作なし）。"
+                    "長時間操作がないため、ユーザーは退席中の可能性が高いです。"
+                    "画面にコードやアプリが映っていても、操作していなければ「不在」と分類してください。"
+                )
+            elif idle_seconds >= 60:
+                parts.append(
+                    f"\n【入力検出】マウス/キーボードの最終操作: {idle_seconds}秒前。"
+                    "しばらく操作していません。休憩中または一時離席の可能性があります。"
+                )
+            else:
+                parts.append(
+                    f"\n【入力検出】マウス/キーボードの最終操作: {idle_seconds}秒前。ユーザーはPCを操作中です。"
                 )
 
         # Activity classification grouped by meta_category

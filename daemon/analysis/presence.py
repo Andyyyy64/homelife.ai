@@ -76,16 +76,23 @@ class PresenceDetector:
         motion_score: float,
         has_face: bool,
         now: datetime,
+        idle_seconds: int = 0,
     ) -> PresenceState:
-        """Update presence state machine. Returns new state."""
+        """Update presence state machine. Returns new state.
+
+        idle_seconds: seconds since last mouse/keyboard input (0 = unknown/unavailable).
+        """
         prev_state = self._state
 
-        if has_face or motion_score > 0.05:
+        # Keyboard/mouse activity is a strong presence signal
+        input_active = idle_seconds > 0 and idle_seconds < 30
+
+        if has_face or motion_score > 0.05 or input_active:
             # Instant recovery to present
             self._absent_ticks = 0
             self._state = PresenceState.PRESENT
         else:
-            # No face, no significant motion
+            # No face, no significant motion, no recent input
             self._absent_ticks += 1
             if self._absent_ticks >= self._absent_threshold:
                 if self._is_sleep_window(now) and brightness < 60:

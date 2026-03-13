@@ -23,6 +23,19 @@ public class FGWin {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+    [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO {
+        public uint cbSize;
+        public uint dwTime;
+    }
+    public static int GetIdleSeconds() {
+        LASTINPUTINFO lii = new LASTINPUTINFO();
+        lii.cbSize = (uint)Marshal.SizeOf(lii);
+        if (GetLastInputInfo(ref lii)) {
+            return (int)((uint)Environment.TickCount - lii.dwTime) / 1000;
+        }
+        return -1;
+    }
 }
 "@
 $lastProc = ""
@@ -46,6 +59,9 @@ while ($true) {
         $lastProc = $proc
         $lastTitle = $title
     }
+    $idleSec = [FGWin]::GetIdleSeconds()
+    [Console]::Out.WriteLine("IDLE|$idleSec")
+    [Console]::Out.Flush()
     Start-Sleep -Milliseconds POLL_MS_PLACEHOLDER
 }
 """
@@ -81,6 +97,7 @@ class WindowMonitor:
         self._poll_ms = poll_ms
         self._current_proc = ""
         self._current_title = ""
+        self._idle_sec = 0
         self._lock = threading.Lock()
         self._running = False
         self._thread: threading.Thread | None = None
@@ -104,6 +121,11 @@ class WindowMonitor:
         """Get current (process_name, window_title)."""
         with self._lock:
             return self._current_proc, self._current_title
+
+    def idle_seconds(self) -> int:
+        """Get seconds since last mouse/keyboard input."""
+        with self._lock:
+            return self._idle_sec
 
     def _run(self):
         while self._running:
@@ -187,6 +209,13 @@ class WindowMonitor:
                 if not self._running:
                     break
                 line = line.strip()
+                if line.startswith("IDLE|"):
+                    try:
+                        with self._lock:
+                            self._idle_sec = int(line.split("|", 1)[1])
+                    except (ValueError, IndexError):
+                        pass
+                    continue
                 if not line.startswith("FOCUS|"):
                     continue
                 parts = line.split("|", 2)
