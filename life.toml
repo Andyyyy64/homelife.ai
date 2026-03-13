@@ -1,6 +1,16 @@
 [llm]
 provider = "gemini"
 gemini_model = "gemini-3.1-flash-lite-preview"
+claude_model = "haiku"
+
+[capture]
+device = 0
+interval_sec = 30
+
+[presence]
+enabled = true
+sleep_start_hour = 23
+sleep_end_hour = 8
 
 [chat]
 enabled = true

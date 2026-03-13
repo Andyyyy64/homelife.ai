@@ -60,6 +60,13 @@ class DiscordChatConfig:
 
 
 @dataclass
+class EmbeddingConfig:
+    enabled: bool = True
+    model: str = "gemini-embedding-2-preview"
+    dimensions: int = 3072
+
+
+@dataclass
 class ChatConfig:
     enabled: bool = False
     discord: DiscordChatConfig = field(default_factory=DiscordChatConfig)
@@ -73,6 +80,7 @@ class Config:
     llm: LLMConfig = field(default_factory=LLMConfig)
     presence: PresenceConfig = field(default_factory=PresenceConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
+    embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
     chat: ChatConfig = field(default_factory=ChatConfig)
     knowledge_interval_days: int = 7
     retention_days: int = 90
@@ -121,6 +129,14 @@ class Config:
                         cfg.notify.enabled = bool(v)
                     else:
                         setattr(cfg.notify, k, str(v))
+        if "embedding" in data:
+            emb = data["embedding"]
+            if isinstance(emb.get("enabled"), bool):
+                cfg.embedding.enabled = emb["enabled"]
+            if "model" in emb:
+                cfg.embedding.model = str(emb["model"])
+            if "dimensions" in emb:
+                cfg.embedding.dimensions = int(emb["dimensions"])
         if "knowledge_interval_days" in data:
             cfg.knowledge_interval_days = int(data["knowledge_interval_days"])
         if "retention_days" in data:

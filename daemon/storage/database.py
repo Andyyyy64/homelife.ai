@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import sqlite3
+import struct
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .models import ChatMessage, Event, Frame, Report, SceneType, Summary
+
+log = logging.getLogger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS frames (
@@ -86,14 +90,19 @@ CREATE INDEX IF NOT EXISTS idx_summaries_scale ON summaries(scale);
 
 
 class Database:
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, embedding_dimensions: int = 768):
         self.db_path = db_path
+        self._embedding_dims = embedding_dimensions
+        self._vec_enabled = False
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(db_path), detect_types=sqlite3.PARSE_DECLTYPES, timeout=10)
+        self._conn = sqlite3.connect(
+            str(db_path), detect_types=sqlite3.PARSE_DECLTYPES, timeout=10, check_same_thread=False
+        )
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(SCHEMA)
         self._migrate()
+        self._init_vec(embedding_dimensions)
 
     def _migrate(self):
         cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(frames)").fetchall()}
@@ -271,6 +280,189 @@ class Database:
             )
 
         self._conn.commit()
+
+    # --- sqlite-vec (unified vector store) ---
+
+    def _init_vec(self, dimensions: int):
+        """Load sqlite-vec extension and create unified vector tables."""
+        if not 1 <= dimensions <= 4096:
+            log.error("Invalid embedding dimensions: %d, skipping vec init", dimensions)
+            return
+
+        try:
+            import sqlite_vec
+
+            self._conn.enable_load_extension(True)
+            sqlite_vec.load(self._conn)
+            self._conn.enable_load_extension(False)
+
+            # vec0 virtual table — vector storage + KNN search
+            self._conn.execute(
+                f"CREATE VIRTUAL TABLE IF NOT EXISTS vec_items USING vec0("
+                f"  embedding float[{dimensions}] distance_metric=cosine"
+                f")"
+            )
+            # Metadata companion table — type, source reference, preview
+            self._conn.executescript("""
+                CREATE TABLE IF NOT EXISTS vec_items_meta (
+                    rowid INTEGER PRIMARY KEY,
+                    item_type TEXT NOT NULL,
+                    source_id INTEGER NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    preview TEXT DEFAULT ''
+                );
+                CREATE INDEX IF NOT EXISTS idx_vec_meta_type_source
+                    ON vec_items_meta(item_type, source_id);
+                CREATE INDEX IF NOT EXISTS idx_vec_meta_timestamp
+                    ON vec_items_meta(timestamp);
+            """)
+            # Drop legacy vec_frames if it exists (migration)
+            with contextlib.suppress(Exception):
+                self._conn.execute("DROP TABLE IF EXISTS vec_frames")
+            self._conn.commit()
+            self._vec_enabled = True
+            log.info("sqlite-vec loaded, vec_items ready (dims=%d)", dimensions)
+        except ImportError:
+            log.warning("sqlite-vec not installed — vector search disabled")
+        except Exception:
+            log.exception("Failed to initialize sqlite-vec")
+
+    def insert_embedding(
+        self,
+        item_type: str,
+        source_id: int,
+        timestamp: str,
+        preview: str,
+        embedding: list[float],
+    ):
+        """Store an embedding with metadata (upserts by type+source_id)."""
+        if not self._vec_enabled:
+            return
+        blob = struct.pack(f"{len(embedding)}f", *embedding)
+
+        # Check if this item already has an embedding
+        existing = self._conn.execute(
+            "SELECT rowid FROM vec_items_meta WHERE item_type = ? AND source_id = ?",
+            (item_type, source_id),
+        ).fetchone()
+
+        if existing:
+            rid = existing[0]
+            self._conn.execute("DELETE FROM vec_items WHERE rowid = ?", (rid,))
+            self._conn.execute("DELETE FROM vec_items_meta WHERE rowid = ?", (rid,))
+
+        cur = self._conn.execute("INSERT INTO vec_items(embedding) VALUES (?)", (blob,))
+        rid = cur.lastrowid
+        self._conn.execute(
+            "INSERT INTO vec_items_meta(rowid, item_type, source_id, timestamp, preview) VALUES (?, ?, ?, ?, ?)",
+            (rid, item_type, source_id, timestamp, preview),
+        )
+        self._conn.commit()
+
+    def search_similar(
+        self,
+        query_embedding: list[float],
+        limit: int = 20,
+        item_type: str | None = None,
+    ) -> list[dict]:
+        """Find items most similar to a query embedding.
+
+        Returns list of {item_type, source_id, timestamp, preview, distance} dicts.
+        If item_type is specified, filters to that type only.
+        """
+        if not self._vec_enabled:
+            return []
+        blob = struct.pack(f"{len(query_embedding)}f", *query_embedding)
+
+        # KNN query — fetch more than needed if filtering by type
+        fetch_k = limit * 3 if item_type else limit
+        rows = self._conn.execute(
+            "SELECT v.rowid, v.distance, m.item_type, m.source_id, m.timestamp, m.preview "
+            "FROM vec_items v "
+            "JOIN vec_items_meta m ON m.rowid = v.rowid "
+            "WHERE v.embedding MATCH ? AND k = ? "
+            "ORDER BY v.distance",
+            (blob, fetch_k),
+        ).fetchall()
+
+        results = []
+        for r in rows:
+            if item_type and r[2] != item_type:
+                continue
+            results.append(
+                {
+                    "item_type": r[2],
+                    "source_id": r[3],
+                    "timestamp": r[4],
+                    "preview": r[5],
+                    "distance": r[1],
+                }
+            )
+            if len(results) >= limit:
+                break
+        return results
+
+    def get_embedding_count(self, item_type: str | None = None) -> int:
+        """Get number of embedded items, optionally filtered by type."""
+        if not self._vec_enabled:
+            return 0
+        if item_type:
+            row = self._conn.execute("SELECT COUNT(*) FROM vec_items_meta WHERE item_type = ?", (item_type,)).fetchone()
+        else:
+            row = self._conn.execute("SELECT COUNT(*) FROM vec_items_meta").fetchone()
+        return row[0]
+
+    def get_unembedded_frame_ids(self, limit: int = 100) -> list[int]:
+        """Get frame IDs that don't have embeddings yet."""
+        if not self._vec_enabled:
+            return []
+        rows = self._conn.execute(
+            "SELECT id FROM frames "
+            "WHERE id NOT IN (SELECT source_id FROM vec_items_meta WHERE item_type = 'frame') "
+            "ORDER BY timestamp LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def get_unembedded_chat_ids(self, since: datetime | None = None, limit: int = 20) -> list[int]:
+        """Get chat message IDs that don't have embeddings yet."""
+        if not self._vec_enabled:
+            return []
+        if since:
+            rows = self._conn.execute(
+                "SELECT id FROM chat_messages WHERE timestamp >= ? "
+                "AND id NOT IN (SELECT source_id FROM vec_items_meta WHERE item_type = 'chat') "
+                "ORDER BY timestamp LIMIT ?",
+                (since.isoformat(), limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT id FROM chat_messages "
+                "WHERE id NOT IN (SELECT source_id FROM vec_items_meta WHERE item_type = 'chat') "
+                "ORDER BY timestamp LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    def get_unembedded_summary_ids(self, since: datetime | None = None, limit: int = 10) -> list[int]:
+        """Get summary IDs that don't have embeddings yet."""
+        if not self._vec_enabled:
+            return []
+        if since:
+            rows = self._conn.execute(
+                "SELECT id FROM summaries WHERE timestamp >= ? "
+                "AND id NOT IN (SELECT source_id FROM vec_items_meta WHERE item_type = 'summary') "
+                "ORDER BY timestamp LIMIT ?",
+                (since.isoformat(), limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT id FROM summaries "
+                "WHERE id NOT IN (SELECT source_id FROM vec_items_meta WHERE item_type = 'summary') "
+                "ORDER BY timestamp LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [r[0] for r in rows]
 
     # --- Activity mappings ---
 

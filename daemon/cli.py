@@ -692,6 +692,157 @@ def cleanup(ctx, days: int | None):
     console.print(f"  Disk freed:           {freed_mb:.1f} MB")
 
 
+@cli.command("embed-backfill")
+@click.option("--workers", default=5, type=int, help="Parallel workers (default: 5)")
+@click.option(
+    "--type",
+    "item_types",
+    multiple=True,
+    type=click.Choice(["frame", "chat", "summary"]),
+    help="Types to backfill (default: all)",
+)
+@click.pass_context
+def embed_backfill(ctx, workers: int, item_types: tuple[str, ...]):
+    """Backfill embeddings for historical frames, chat messages, and summaries."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from threading import Lock
+
+    from rich.progress import Progress
+
+    config: Config = ctx.obj["config"]
+
+    if not config.embedding.enabled:
+        console.print("[yellow]Embedding is disabled in config[/yellow]")
+        return
+
+    if not config.db_path.exists():
+        console.print("[dim]No data yet[/dim]")
+        return
+
+    from daemon.embedding import Embedder
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path, embedding_dimensions=config.embedding.dimensions)
+    embedder = Embedder(model=config.embedding.model, dimensions=config.embedding.dimensions)
+
+    if embedder._get_client() is None:
+        console.print("[red]GEMINI_API_KEY not set — cannot embed[/red]")
+        db.close()
+        return
+
+    types_to_run = set(item_types) if item_types else {"frame", "chat", "summary"}
+    stats = {"frame": [0, 0], "chat": [0, 0], "summary": [0, 0]}  # [success, fail]
+    db_lock = Lock()
+
+    def embed_one_frame(fid: int) -> bool:
+        try:
+            with db_lock:
+                row = db._conn.execute("SELECT * FROM frames WHERE id = ?", (fid,)).fetchone()
+            if not row:
+                return False
+            frame = db._row_to_frame(row)
+            embedding = embedder.embed_frame(frame, config.data_dir)
+            if embedding:
+                preview = frame.claude_description[:200] if frame.claude_description else frame.activity
+                with db_lock:
+                    db.insert_embedding("frame", fid, frame.timestamp.isoformat(), preview, embedding)
+                return True
+            return False
+        except Exception as e:
+            console.print(f"[red]Frame {fid}: {e}[/red]")
+            return False
+
+    def embed_one_chat(mid: int) -> bool:
+        try:
+            with db_lock:
+                row = db._conn.execute("SELECT * FROM chat_messages WHERE id = ?", (mid,)).fetchone()
+            if not row:
+                return False
+            msg = db._row_to_chat_message(row)
+            embedding = embedder.embed_chat_message(msg)
+            if embedding:
+                preview = f"{msg.author_name}: {msg.content[:200]}"
+                with db_lock:
+                    db.insert_embedding("chat", mid, msg.timestamp.isoformat(), preview, embedding)
+                return True
+            return False
+        except Exception as e:
+            console.print(f"[red]Chat {mid}: {e}[/red]")
+            return False
+
+    def embed_one_summary(sid: int) -> bool:
+        try:
+            with db_lock:
+                row = db._conn.execute("SELECT * FROM summaries WHERE id = ?", (sid,)).fetchone()
+            if not row:
+                return False
+            summary = db._row_to_summary(row)
+            embedding = embedder.embed_summary(summary)
+            if embedding:
+                preview = f"[{summary.scale}] {summary.content[:200]}"
+                with db_lock:
+                    db.insert_embedding("summary", sid, summary.timestamp.isoformat(), preview, embedding)
+                return True
+            return False
+        except Exception as e:
+            console.print(f"[red]Summary {sid}: {e}[/red]")
+            return False
+
+    def run_parallel(task_id, ids: list[int], fn, type_key: str):
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(fn, item_id): item_id for item_id in ids}
+            for future in as_completed(futures):
+                ok = future.result()
+                if ok:
+                    stats[type_key][0] += 1
+                else:
+                    stats[type_key][1] += 1
+                progress.advance(task_id)
+
+    console.print(f"[dim]Workers: {workers} parallel threads[/dim]")
+
+    with Progress(console=console) as progress:
+        if "frame" in types_to_run:
+            all_frame_ids = db.get_unembedded_frame_ids(limit=100000)
+            if all_frame_ids:
+                task = progress.add_task(f"[cyan]Frames ({len(all_frame_ids)})", total=len(all_frame_ids))
+                run_parallel(task, all_frame_ids, embed_one_frame, "frame")
+            else:
+                console.print("[dim]All frames already embedded[/dim]")
+
+        if "chat" in types_to_run:
+            all_chat_ids = db.get_unembedded_chat_ids(limit=100000)
+            if all_chat_ids:
+                task = progress.add_task(f"[green]Chat ({len(all_chat_ids)})", total=len(all_chat_ids))
+                run_parallel(task, all_chat_ids, embed_one_chat, "chat")
+            else:
+                console.print("[dim]All chat messages already embedded[/dim]")
+
+        if "summary" in types_to_run:
+            all_sum_ids = db.get_unembedded_summary_ids(limit=100000)
+            if all_sum_ids:
+                task = progress.add_task(f"[blue]Summaries ({len(all_sum_ids)})", total=len(all_sum_ids))
+                run_parallel(task, all_sum_ids, embed_one_summary, "summary")
+            else:
+                console.print("[dim]All summaries already embedded[/dim]")
+
+    total_ok = sum(v[0] for v in stats.values())
+    total_fail = sum(v[1] for v in stats.values())
+    console.print()
+    console.print(
+        Panel(
+            f"Frames:    {stats['frame'][0]} embedded, {stats['frame'][1]} failed\n"
+            f"Chat:      {stats['chat'][0]} embedded, {stats['chat'][1]} failed\n"
+            f"Summaries: {stats['summary'][0]} embedded, {stats['summary'][1]} failed\n"
+            f"Total:     {total_ok} embedded, {total_fail} failed\n"
+            f"Vec items: {db.get_embedding_count()} total in store",
+            title="Backfill Complete",
+            border_style="green" if total_fail == 0 else "yellow",
+        )
+    )
+    db.close()
+
+
 def _parse_date(s: str) -> date:
     try:
         return date.fromisoformat(s)
