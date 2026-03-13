@@ -94,6 +94,32 @@ app.route('/api/devices', devicesRoutes);
 app.route('/api/export', exportRoutes);
 app.route('/api/rag', ragRoutes);
 
+// User context (data/context.md) — read/write
+app.get('/api/context', (c) => {
+  const ctxPath = join(DATA_DIR, 'context.md');
+  if (!existsSync(ctxPath)) {
+    return c.json({ content: '' });
+  }
+  try {
+    const content = readFileSync(ctxPath, 'utf-8');
+    return c.json({ content });
+  } catch {
+    return c.json({ content: '' });
+  }
+});
+
+app.put('/api/context', async (c) => {
+  const { writeFileSync, mkdirSync } = await import('node:fs');
+  try {
+    const { content } = await c.req.json<{ content: string }>();
+    mkdirSync(DATA_DIR, { recursive: true });
+    writeFileSync(join(DATA_DIR, 'context.md'), content, 'utf-8');
+    return c.json({ ok: true });
+  } catch {
+    return c.json({ error: 'Failed to save context' }, 500);
+  }
+});
+
 // Daemon status (read from data/status.json)
 app.get('/api/status', (c) => {
   const statusPath = join(DATA_DIR, 'status.json');

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { api } from '../lib/api';
 
 interface Props {
   onClose: () => void;
@@ -12,15 +13,71 @@ export function isOnboarded(): boolean {
   return localStorage.getItem(STORAGE_KEY) === '1';
 }
 
+const DEFAULT_CONTEXT = `# コンテキスト
+
+## ユーザー
+- 名前:
+- 職業:
+- 性格/趣味:
+
+## 環境
+- 作業場所:
+- OS/環境:
+
+## よく登場する人
+-
+
+## よく使うツール
+-
+
+## メモ
+-
+`;
+
 export function Onboarding({ onClose, onOpenSettings }: Props) {
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
-  const totalSteps = 3;
+  const [context, setContext] = useState('');
+  const [saving, setSaving] = useState(false);
+  const totalSteps = 4;
+
+  // Load existing context
+  useEffect(() => {
+    api.context.get().then((res) => {
+      setContext(res.content || DEFAULT_CONTEXT);
+    }).catch(() => {
+      setContext(DEFAULT_CONTEXT);
+    });
+  }, []);
+
+  const saveContext = useCallback(async () => {
+    if (!context.trim()) return;
+    setSaving(true);
+    try {
+      await api.context.put(context);
+    } catch {
+      // silent fail
+    } finally {
+      setSaving(false);
+    }
+  }, [context]);
 
   const finish = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, '1');
     onClose();
   }, [onClose]);
+
+  const handleNext = useCallback(async () => {
+    // Save context when leaving profile step
+    if (step === 1 && context.trim()) {
+      await saveContext();
+    }
+    if (step < totalSteps - 1) {
+      setStep(step + 1);
+    } else {
+      finish();
+    }
+  }, [step, totalSteps, context, saveContext, finish]);
 
   const handleEsc = useCallback(
     (e: KeyboardEvent) => { if (e.key === 'Escape') finish(); },
@@ -73,6 +130,21 @@ export function Onboarding({ onClose, onOpenSettings }: Props) {
 
           {step === 1 && (
             <>
+              <h2 className="onboarding-title">{t('onboarding.profile.title')}</h2>
+              <p className="onboarding-description">{t('onboarding.profile.description')}</p>
+              <textarea
+                className="onboarding-context-input"
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                rows={12}
+                spellCheck={false}
+              />
+              <p className="onboarding-hint">{t('onboarding.profile.hint')}</p>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
               <h2 className="onboarding-title">{t('onboarding.setup.title')}</h2>
               <p className="onboarding-description">{t('onboarding.setup.description')}</p>
               <button
@@ -87,7 +159,7 @@ export function Onboarding({ onClose, onOpenSettings }: Props) {
             </>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <>
               <h2 className="onboarding-title">{t('onboarding.start.title')}</h2>
               <p className="onboarding-description">{t('onboarding.start.description')}</p>
@@ -107,15 +179,9 @@ export function Onboarding({ onClose, onOpenSettings }: Props) {
                 {t('onboarding.back')}
               </button>
             )}
-            {step < totalSteps - 1 ? (
-              <button className="onboarding-next-btn" onClick={() => setStep(step + 1)}>
-                {t('onboarding.next')}
-              </button>
-            ) : (
-              <button className="onboarding-next-btn" onClick={finish}>
-                {t('onboarding.start.done')}
-              </button>
-            )}
+            <button className="onboarding-next-btn" onClick={handleNext} disabled={saving}>
+              {step < totalSteps - 1 ? t('onboarding.next') : t('onboarding.start.done')}
+            </button>
           </div>
         </div>
       </div>

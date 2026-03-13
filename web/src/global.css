@@ -1861,6 +1861,50 @@ pre {
   opacity: 0.85;
 }
 
+.onboarding-context-input {
+  width: 100%;
+  min-height: 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.onboarding-context-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.onboarding-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+}
+
+.settings-context-input {
+  width: 100%;
+  min-height: 160px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.settings-context-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .onboarding-command {
   display: block;
   background: var(--bg-elevated);

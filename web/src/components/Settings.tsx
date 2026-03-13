@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { api } from '../lib/api';
 
 interface SettingsData {
   llm: { provider: string; gemini_model: string; claude_model: string };
@@ -31,16 +32,21 @@ export function Settings({ onClose }: Props) {
   const [error, setError]         = useState('');
   const [envInputs, setEnvInputs] = useState<Record<string, string>>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [context, setContext] = useState('');
+  const [contextSaving, setContextSaving] = useState(false);
+  const contextTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load settings and devices in parallel
+  // Load settings, devices, and context in parallel
   useEffect(() => {
     Promise.all([
       fetch('/api/settings').then((r) => r.json()),
       fetch('/api/devices').then((r) => r.json()),
+      api.context.get().catch(() => ({ content: '' })),
     ])
-      .then(([s, d]: [SettingsData, DeviceList]) => {
+      .then(([s, d, ctx]: [SettingsData, DeviceList, { content: string }]) => {
         setData(s);
         setDevices(d);
+        setContext(ctx.content);
         const init: Record<string, string> = {};
         for (const k of Object.keys(s.env_masked)) init[k] = '';
         setEnvInputs(init);
@@ -99,6 +105,16 @@ export function Settings({ onClose }: Props) {
     }
   }
 
+  const handleContextChange = useCallback((value: string) => {
+    setContext(value);
+    if (contextTimer.current) clearTimeout(contextTimer.current);
+    contextTimer.current = setTimeout(async () => {
+      setContextSaving(true);
+      try { await api.context.put(value); } catch { /* silent */ }
+      setContextSaving(false);
+    }, 1000);
+  }, []);
+
   const cams = devices?.cameras ?? [];
   const mics = devices?.audio ?? [];
 
@@ -124,6 +140,22 @@ export function Settings({ onClose }: Props) {
           <div className="settings-loading">{error || t('common.loading')}</div>
         ) : (
           <div className="settings-body">
+
+            {/* ── Profile (context.md) ── */}
+            <section className="settings-section">
+              <h3 className="settings-section-title">
+                {t('settings.profile.title')}
+                {contextSaving && <span className="settings-hint"> ({t('common.saving')})</span>}
+              </h3>
+              <p className="settings-hint-block">{t('settings.profile.description')}</p>
+              <textarea
+                className="settings-context-input"
+                value={context}
+                onChange={(e) => handleContextChange(e.target.value)}
+                rows={10}
+                spellCheck={false}
+              />
+            </section>
 
             {/* ── Language ── */}
             <section className="settings-section">

@@ -100,6 +100,10 @@
     "title": "Settings",
     "closeButton": "✕ Close",
     "failedToLoad": "Failed to load settings",
+    "profile": {
+      "title": "Profile",
+      "description": "Describe yourself to improve AI analysis accuracy. Add your name, occupation, personality, hobbies, etc."
+    },
     "llm": {
       "title": "LLM",
       "provider": "Provider",
@@ -146,6 +150,11 @@
     "welcome": {
       "title": "Welcome to homelife.ai",
       "description": "Your personal AI system for monitoring, managing, and analyzing your daily life."
+    },
+    "profile": {
+      "title": "Tell us about yourself",
+      "description": "The more detail you provide, the more accurate your recordings will be!",
+      "hint": "Name, occupation, personality, hobbies, workspace, people around you — you can always edit this later in Settings"
     },
     "setup": {
       "title": "Quick Setup",

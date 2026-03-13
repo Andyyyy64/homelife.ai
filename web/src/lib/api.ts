@@ -60,6 +60,10 @@ export const api = {
     get: (date: string) => fetchJson<Memo>(`/memos?date=${date}`),
     put: (date: string, content: string) => putJson<{ ok: boolean }>('/memos', { date, content }),
   },
+  context: {
+    get: () => fetchJson<{ content: string }>('/context'),
+    put: (content: string) => putJson<{ ok: boolean }>('/context', { content }),
+  },
   chat: (date: string) => fetchJson<ChatData>(`/chat?date=${date}`),
   status: () => fetchJson<{ running: boolean; camera: boolean; mic: boolean }>('/status'),
   search: (q: string, from?: string, to?: string) => {
