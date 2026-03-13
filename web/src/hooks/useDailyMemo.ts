@@ -8,6 +8,7 @@ export function useDailyMemo(date: string) {
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContent = useRef(content);
+  const dirtyRef = useRef(false);
 
   const readonly = date !== todayStr();
 
@@ -30,9 +31,11 @@ export function useDailyMemo(date: string) {
   const updateContent = useCallback((value: string) => {
     setContent(value);
     latestContent.current = value;
+    dirtyRef.current = true;
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
+      dirtyRef.current = false;
       setSaving(true);
       api.memos.put(date, value)
         .catch(console.error)
@@ -40,10 +43,14 @@ export function useDailyMemo(date: string) {
     }, 1000);
   }, [date]);
 
-  // Cleanup timer on unmount or date change
+  // Flush pending save on date change or unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        api.memos.put(date, latestContent.current).catch(console.error);
+      }
     };
   }, [date]);
 
