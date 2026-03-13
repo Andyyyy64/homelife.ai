@@ -140,6 +140,28 @@ class AudioCapture:
             self._alsa_device = ""
             self._sd_device = device or None
 
+    def is_available(self) -> bool:
+        """Check if an audio capture device is available."""
+        if sys.platform in ("darwin", "win32"):
+            try:
+                import sounddevice as sd
+
+                devs = sd.query_devices()
+                return any(d["max_input_channels"] > 0 for d in devs)
+            except Exception:
+                return False
+        else:
+            try:
+                result = subprocess.run(
+                    ["arecord", "-l"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                return result.returncode == 0 and "card" in result.stdout.lower()
+            except Exception:
+                return False
+
     def capture(self, duration_sec: int = 30, timestamp: datetime | None = None) -> str | None:
         """Record audio and save as WAV. Returns relative path or None."""
         timestamp = timestamp or datetime.now()

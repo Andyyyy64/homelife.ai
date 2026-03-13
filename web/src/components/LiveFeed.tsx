@@ -47,18 +47,19 @@ export function LiveFeed() {
 
   return (
     <>
-      <div className="live-feed" onClick={() => live && setExpanded(true)} style={{ cursor: live ? 'pointer' : 'default' }}>
-        <div className={`live-indicator ${live ? 'active' : ''}`}>
-          <span className={`live-dot ${live ? '' : 'offline'}`} />
-          {live ? t('common.live') : t('common.offline')}
+      {live && (
+        <div className="live-feed" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }}>
+          <div className="live-indicator active">
+            <span className="live-dot" />
+            {t('common.live')}
+          </div>
+          <img
+            src={STREAM_URL}
+            alt={t('common.live')}
+            className="live-image"
+          />
         </div>
-        <img
-          src={STREAM_URL}
-          alt={t('common.live')}
-          className="live-image"
-          style={{ display: live ? 'block' : 'none' }}
-        />
-      </div>
+      )}
       {expanded && (
         <div className="live-modal-overlay" onClick={handleClose}>
           <div className="live-modal" onClick={(e) => e.stopPropagation()}>
