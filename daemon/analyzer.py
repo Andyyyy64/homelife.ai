@@ -81,13 +81,16 @@ class FrameAnalyzer:
                     extra_cams.append(p)
 
         context = _load_context(self._data_dir)
-        parts: list[str] = []
+        parts: list[str] = [
+            "あなたは継続的なライフログ記録システムです。"
+            "毎回新しい人として描写せず、継続的な観察記録であることを意識してください。\n",
+        ]
 
         if context:
             parts.append(
-                "あなたは継続的なライフログ記録システムです。以下はユーザーの背景情報です:\n"
+                "以下はユーザーの背景情報です:\n"
                 f"---\n{context}\n---\n"
-                "この情報を踏まえて、人物を名前で呼び、継続的な観察として記述してください。\n"
+                "この情報を踏まえて、人物を名前で呼んでください。\n"
             )
 
         # Inject today's memo if available
